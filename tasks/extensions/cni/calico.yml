@@ -1,0 +1,39 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Install Calico CNI plugin --"
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+  block:
+    - name: "Kubernetes: -- Copy cni plugin manifests --"
+      ansible.builtin.template:
+        src: "manifests/cni/calico/{{ item }}.j2"
+        dest: "{{ kubernetes_tmp_configs_dir }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - install-calico-operator.yml
+        - init-calico.yml
+    # BUG: calico-typha/calico-apiserver не устанавливаются под и нод аффинити
+    # BUG: надо перепроверить что аpply проходит нормально
+    # FEATURE: Добавить условие при котором нужно устанавливать calico-typha или нет(50+ нод нужно, меньше не нужно)
+    - name: "Kubernetes: -- Install cni plugin --"
+      kubernetes.core.k8s:
+        src: "{{ kubernetes_tmp_configs_dir }}/{{ item }}"
+        state: present
+      register: result
+      until: result is succeeded
+      retries: 5
+      delay: 20
+      loop:
+        - install-calico-operator.yml
+        - init-calico.yml
+
+    - name: "Kubernetes: -- Remove cni plugin manifests --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/{{ item }}"
+        state: absent
+      loop:
+        - install-calico-operator.yml
+        - init-calico.yml

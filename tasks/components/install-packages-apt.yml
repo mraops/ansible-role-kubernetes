@@ -1,0 +1,77 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+    state: present
+
+- name: Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Kubernetes official keyring
+  ansible.builtin.get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[:2] | join('.') }}/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: '0644'
+
+- name: Convert Kubernetes key to gpg format
+  ansible.builtin.shell: |
+    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /etc/apt/keyrings/kubernetes-apt-keyring.asc
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: |
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[:2] | join('.') }}/deb/ /
+    mode: '0644'
+
+# for containerd installation
+
+- name: Download docker official keyring
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/trusted.gpg.d/docker.asc
+    mode: '0644'
+
+- name: Add docker apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    content: |
+      deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable
+    mode: '0644'
+
+- name: Update apt cache after adding Kubernetes repo
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: "Kubernetes Components: -- Install kubernetes packages --"
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop: "{{ kubernetes_packages }}"
+  register: kubernetes_packages_install_result
+- name: "Kubernetes Components: -- Install haproxy packages --"
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop: "{{ kubernetes_haproxy_packages }}"
+
+- name: "Kubernetes Components: -- Add version locks for Kubernetes packages --"
+  ansible.builtin.command: "apt-mark hold  {{ item }}"
+  become: true
+  loop: "{{ kubernetes_packages }}"
+  when: kubernetes_packages_install_result.changed

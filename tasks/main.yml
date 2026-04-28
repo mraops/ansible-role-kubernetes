@@ -1,0 +1,104 @@
+---
+# # tasks file for roles/kubernetes
+- name: "Kubernetes: -- Prepare OS  --"
+  ansible.builtin.import_tasks: "prepare/main.yml"
+  when: "'kubernetes_prepare'  in ansible_run_tags "
+  tags:
+    - kubernetes_prepare
+
+- name: "Kubernetes: -- Install components --"
+  ansible.builtin.import_tasks: "components/main.yml"
+  when: ansible_run_tags | select('search', '^kubernetes_components') | list | length > 0
+  tags:
+    - kubernetes_components
+
+- name: "Kubernetes: -- Initialize cluster --"
+  ansible.builtin.import_tasks: "init-cluster/main.yml"
+  when: "'kubernetes_first_init'  in ansible_run_tags "
+  tags:
+    - kubernetes_first_init
+
+- name: "Kubernetes: -- Add secondary master nodes --"
+  ansible.builtin.import_tasks: "master/main.yml"
+  when: "'kubernetes_add_master_node'  in ansible_run_tags "
+  tags:
+    - kubernetes_add_master_node
+
+- name: "Kubernetes: -- Install CNI plugin --"
+  ansible.builtin.import_tasks:
+    file: extensions/cni/calico.yml
+  when: "'kubernetes_install_cni'  in ansible_run_tags"
+  tags:
+    - kubernetes_install_cni
+
+- name: "Kubernetes: -- Install  node local dns --"
+  ansible.builtin.import_tasks:
+    file: extensions/dns/node-local-dns.yml
+  when: "'kubernetes_install_node_local_dns'  in ansible_run_tags"
+  tags:
+    - kubernetes_install_node_local_dns
+
+- name: "Kubernetes: -- Patch CoreDNS settings  --"
+  ansible.builtin.import_tasks:
+    file: extensions/dns/patch-core-dns.yml
+  when: "'kubernetes_patch_coredns'  in ansible_run_tags"
+  tags:
+    - kubernetes_patch_coredns
+
+- name: "Kubernetes: -- Install  node local dns --"
+  ansible.builtin.import_tasks:
+    file: extensions/csr/kubelet-csr-approver.yml
+  when: "'kubernetes_install_kubelet_csr_approver'  in ansible_run_tags"
+  tags:
+    - kubernetes_install_kubelet_csr_approver
+
+- name: "Kubernetes: -- Install ingress controller nginx --"
+  ansible.builtin.import_tasks:
+    file: extensions/ingress/ingress-nginx.yml
+  when: "'kubernetes_install_ingress_nginx'  in ansible_run_tags"
+  tags:
+    - kubernetes_install_ingress_nginx
+
+- name: "Kubernetes: -- Install kubernetes metrics server --"
+  ansible.builtin.import_tasks:
+    file: extensions/metrics/metrics-server.yml
+  when: "'kubernetes_install_metrics_server'  in ansible_run_tags"
+  tags:
+    - kubernetes_install_metrics_server
+
+- name: "Kubernetes: -- Add worker nodes --"
+  ansible.builtin.import_tasks: "worker/main.yml"
+  when: "'kubernetes_add_worker_node'  in ansible_run_tags "
+  tags:
+    - kubernetes_add_worker_node
+
+- name: "Kubernetes: -- Apply worker node  label --"
+  ansible.builtin.import_tasks:
+    file: enviroment/node-labels.yml
+  when: "'kubernetes_add_node_label'  in ansible_run_tags "
+  tags:
+    - kubernetes_add_node_label
+
+- name: "Kubernetes: -- apply CIS settings --"
+  ansible.builtin.import_tasks: "cis-settings/main.yml"
+  when: "'kubernetes_cis_settings'  in ansible_run_tags "
+  tags:
+    - kubernetes_cis_settings
+
+- name: "Kubernetes: -- Download kubernetes admin.conf to local  --"
+  ansible.builtin.fetch:
+    src: "/etc/kubernetes/admin.conf"
+    dest: "{{ local_ansible_user }}/{{ kubernetes_cluster_name }}.yaml"
+    mode: "0777"
+    flat: true
+  run_once: true
+  when: "'kubernetes_fetch_admin_conf'  in ansible_run_tags "
+  tags:
+    - kubernetes_fetch_admin_conf
+
+- name: "Kubernetes: -- check --"
+  ansible.builtin.import_tasks:
+    file: enviroment/check-existing-nodes.yml
+  when: "'kubernetes_check_existing_nodes'  in ansible_run_tags"
+  tags:
+    - kubernetes_check_existing_nodes

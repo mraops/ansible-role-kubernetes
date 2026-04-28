@@ -1,0 +1,174 @@
+- name: "Kubernetes Components: -- Gather facts for all hosts --"
+  block:
+    - name: "Kubernetes Components: -- Gather facts for all master hosts --"
+      ansible.builtin.setup:
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ groups[kubernetes_master_group_name] }}"
+  tags:
+    - kubernetes_components_haproxy_config
+
+- name: "Kubernetes Components: -- Install packages and apply OS-specific fixes --"
+  block:
+    - name: "Kubernetes Components: -- Install kubernetes packages from {{ ansible_pkg_mgr }} repository --"
+      ansible.builtin.include_tasks: "components/install-packages-{{ ansible_pkg_mgr }}.yml"
+
+    - name: "Kubernetes Components: -- Apply fixes for Red OS --"
+      ansible.builtin.include_tasks: "components/fixes/redos.yml"
+      when: ansible_distribution == "RED"
+
+- name: "Kubernetes Components: -- Configure HAProxy --"
+  block:
+    # TODO: Добавить rescue для отката в случае ошибки
+    - name: "Kubernetes Components: -- Copy haproxy global configuration file --"
+      ansible.builtin.template:
+        src: haproxy/kubernetes-api.cfg.j2
+        dest: "/etc/haproxy/haproxy.cfg"
+        mode: "0644"
+        validate: "haproxy -f %s -c"
+      notify:
+        - Restart haproxy service
+
+    - name: "Kubernetes Components: -- Copy haproxy-state script --"
+      ansible.builtin.copy:
+        src: haproxy/haproxy-state.py
+        dest: "/usr/bin/haproxy-state"
+        mode: "0755"
+
+    - name: "Kubernetes Components: -- Ensure haproxy systemd override directory exists --"
+      ansible.builtin.file:
+        path: "/etc/systemd/system/haproxy.service.d"
+        state: directory
+        mode: "0755"
+
+    - name: "Kubernetes Components: -- Configure haproxy service restart and OOM score --"
+      ansible.builtin.template:
+        src: haproxy/override.conf.j2
+        dest: "/etc/systemd/system/haproxy.service.d/override.conf"
+        mode: "0644"
+      notify:
+        - Daemon reload
+        - Restart haproxy service
+  tags:
+    - kubernetes_components_haproxy_config
+
+- name: "Kubernetes Components: -- Prepare directories and kube-apiserver auth config --"
+  block:
+    - name: "Kubernetes Components: -- Create directory {{ kubernetes_manifests_dir }} --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_manifests_dir }}"
+        state: directory
+        mode: "0755"
+        owner: root
+
+    - name: "Kubernetes Components: -- Ensure kube-apiserver auth folder exists --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_kubeapi_auth_hostpath }}"
+        state: directory
+        mode: "0755"
+      when: inventory_hostname in groups[kubernetes_master_group_name]
+
+    - name: "Kubernetes Components: -- Copy kube-apiserver auth file --"
+      ansible.builtin.template:
+        src: kubeapi/auth-config.yml.j2
+        dest: "{{ kubernetes_kubeapi_auth_file }}"
+        mode: "0644"
+      when: inventory_hostname in groups[kubernetes_master_group_name]
+  tags:
+    - kubernetes_components_api_auth_config
+
+- name: "Kubernetes Components: -- Configure containerd --"
+  block:
+    - name: "Kubernetes Components: -- Copy containerd configuration template --"
+      ansible.builtin.template:
+        src: containerd/config.toml.j2
+        dest: "/etc/containerd/config.toml"
+        mode: "0644"
+      notify:
+        - Daemon reload
+        - Restart containerd service
+
+    - name: "Kubernetes Components: -- Add private registry config to containerd if needed --"
+      when: kubernetes_containerd_private_registries | length > 0
+      notify:
+        - Daemon reload
+        - Restart containerd service
+      block:
+        - name: "Kubernetes Components: -- Ensure private registry config directory exists --"
+          ansible.builtin.file:
+            path: "{{ kubernetes_containerd_private_registries_config_dir }}/{{ item.name }}"
+            state: directory
+            mode: "0755"
+            owner: root
+          loop: "{{ kubernetes_containerd_private_registries }}"
+          loop_control:
+            label: "{{ item.name }}"
+
+        - name: "Kubernetes Components: -- Copy config for private registry --"
+          ansible.builtin.template:
+            src: containerd/hosts.toml.j2
+            dest: "{{ kubernetes_containerd_private_registries_config_dir }}/{{ item.name }}/hosts.toml"
+            owner: root
+            group: root
+            mode: "0644"
+          loop: "{{ kubernetes_containerd_private_registries }}"
+          loop_control:
+            label: "{{ item.name }}"
+
+        - name: "Kubernetes Components: -- Copy CA certs for private registry --"
+          ansible.builtin.copy:
+            src: "{{ item.ca_file }}"
+            dest: "{{ kubernetes_containerd_private_registries_config_dir }}/{{ item.name }}/ca.crt"
+            owner: root
+            group: root
+            mode: "0644"
+          when: item.ca_file is defined
+          loop: "{{ kubernetes_containerd_private_registries }}"
+          loop_control:
+            label: "{{ item.name }}"
+  tags:
+    - kubernetes_components_containerd_config
+
+- name: "Kubernetes Components: -- Ensure services are enabled and running --"
+  block:
+    - name: "Kubernetes Components: -- Ensure haproxy service is enabled and running --"
+      ansible.builtin.service:
+        name: haproxy
+        state: started
+        enabled: true
+
+    - name: "Kubernetes Components: -- Ensure containerd service is enabled and running --"
+      ansible.builtin.service:
+        name: containerd
+        state: started
+        enabled: true
+
+    - name: "Kubernetes Components: -- Ensure kubelet service is enabled --"
+      ansible.builtin.service:
+        name: kubelet
+        enabled: true
+
+- name: "Kubernetes Components: -- Flush handlers --"
+  ansible.builtin.meta: flush_handlers
+
+- name: "Kubernetes Components: -- Install additional CLI tools --"
+  block:
+    - name: "Kubernetes Components: -- Download crictl --"
+      ansible.builtin.unarchive:
+        src: "{{ kubernetes_crictl_url }}"
+        dest: /usr/local/bin
+        remote_src: true
+      when: kubernetes_crictl_url is defined and kubernetes_crictl_url | length > 0
+
+    - name: "Kubernetes Components: -- Copy crictl config file --"
+      ansible.builtin.template:
+        src: "crictl/crictl.yaml.j2"
+        dest: "/etc/crictl.yaml"
+        mode: "0644"
+
+    - name: "Kubernetes Components: -- Download calicoctl --"
+      ansible.builtin.get_url:
+        url: "{{ kubernetes_calicoctl_url }}"
+        dest: /usr/local/bin/calicoctl
+        mode: "0755"
+      when: kubernetes_calicoctl_url is defined and kubernetes_calicoctl_url | length > 0

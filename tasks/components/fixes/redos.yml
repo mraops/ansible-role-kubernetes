@@ -1,0 +1,48 @@
+- name: "Kubernetes Components: -- Ensure zram is disabled --"
+  ansible.builtin.systemd:
+    name: systemd-zram-setup@zram0.service
+    state: stopped
+    enabled: false
+    masked: false
+  ignore_errors: true
+  become: true
+
+- name: "Kubernetes Components: -- Remove zram packages --"
+  ansible.builtin.dnf:
+    name: zram-generator
+    state: absent
+  become: true
+
+- name: "Kubernetes Components: -- Ensure /opt/cni exists --"
+  ansible.builtin.file:
+    path: /opt/cni
+    state: directory
+    mode: "0755"
+
+- name: "Kubernetes Components: -- Ensure /opt/cni/bin symlink points to /usr/libexec/cni --"
+  ansible.builtin.file:
+    src: /usr/libexec/cni
+    dest: /opt/cni/bin
+    state: link
+
+- name: "Kubernetes Components: -- Ensure kubelet drop-in config exists --"
+  ansible.builtin.file:
+    path: /etc/systemd/system/kubelet.service.d/
+    state: directory
+    mode: "0755"
+
+- name: "Kubernetes Components: -- Delete drop-in config --"
+  ansible.builtin.file:
+    path: "/etc/systemd/system/kubelet.service.d/kubeadm.conf"
+    state: absent
+
+- name: "Kubernetes Components: -- Copy copy correct drop-in kubelet config --"
+  ansible.builtin.copy:
+    src: kubelet/10-kubeadm.conf
+    dest: "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Daemon reload
+    - Restart kubelet service

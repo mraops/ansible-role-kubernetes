@@ -1,0 +1,217 @@
+apiVersion: audit.k8s.io/v1 # This is required.
+kind: Policy
+# Don't generate audit events for all requests in RequestReceived stage.
+omitStages:
+  - "RequestReceived"
+rules:
+  - level: Metadata
+    resources:
+      - group: "" # core
+        resources: ["secrets", "configmaps", "serviceaccounts/token"]
+      # - group: authentication.k8s.io
+      #   resources: ["tokenreviews"]
+    omitStages:
+      - "RequestReceived"
+
+  # Log pod changes at RequestResponse level
+  - level: Request
+    resources:
+      - group: ""
+        # Resource "pods" doesn't match requests to any subresource of pods,
+        # which is consistent with the RBAC policy.
+        resources: ["pods"]
+    omitStages:
+      - "RequestReceived"
+
+  #Log pod exec
+  - level: Request
+    resources:
+      - group: ""
+        resources: ["pods/exec", "pods/portforward"]
+
+  # Log the request body of configmap changes in kube-system.
+  - level: Request
+    resources:
+      - group: "" # core API group
+        resources: ["configmaps"]
+    # This rule only applies to resources in the "kube-system" namespace.
+    # The empty string "" can be used to select non-namespaced resources.
+    namespaces: ["kube-system"]
+
+  # Log configmap and secret changes in all other namespaces at the Metadata level.
+  - level: Metadata
+    resources:
+      - group: "" # core API group
+        resources: ["secrets", "configmaps"]
+
+  # Log all other resources in core and extensions at the Request level.
+  - level: Request
+    resources:
+      - group: "" # core API group
+      - group: "extensions" # Version of group should NOT be included.
+
+  - level: Request
+    userGroups: ["system:nodes"]
+    verbs: ["update", "patch"]
+    resources:
+      - group: "" # core
+        resources: ["nodes/status", "pods/status"]
+    omitStages:
+      - "RequestReceived"
+
+  - level: Request
+    users:
+      [
+        "kubelet",
+        "system:node-problem-detector",
+        "system:serviceaccount:kube-system:node-problem-detector",
+      ]
+    verbs: ["update", "patch"]
+    resources:
+      - group: "" # core
+        resources: ["nodes/status", "pods/status"]
+    omitStages:
+      - "RequestReceived"
+
+  - level: Request
+    users: ["system:serviceaccount:kube-system:namespace-controller"]
+    verbs: ["deletecollection"]
+    omitStages:
+      - "RequestReceived"
+
+  - level: Request
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "" # core
+      - group: "admissionregistration.k8s.io"
+      - group: "apiextensions.k8s.io"
+      - group: "apiregistration.k8s.io"
+      - group: "apps"
+      - group: "autoscaling"
+      - group: "batch"
+      - group: "extensions"
+      - group: "storage.k8s.io"
+    omitStages:
+      - "RequestReceived"
+
+  - level: Metadata
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "authorization.k8s.io"
+      - group: "authentication.k8s.io"
+    omitStages:
+      - "RequestReceived"
+
+  #User action logging
+  - level: RequestResponse
+    verbs: ["*"]
+    resources:
+      - group: "rbac.authorization.k8s.io"
+        resources:
+          ["roles", "clusterroles", "rolebindings", "clusterrolebindings", "selfsubjectaccessreviews", "selfsubjectrulesreviews"]
+    omitStages:
+      - "RequestReceived"
+
+  #Logging of administrative user actions
+  - level: RequestResponse
+    verbs: ["create", "update", "patch", "delete"]
+    userGroups:
+      - "system:masters"
+      - "system:admin"
+      - "system:cluster-admins"
+      - "system:controller-manager"
+      - "system:kube-controller-manager"
+      - "system:kube-scheduler"
+    omitStages:
+      - "RequestReceived"
+
+
+  # A catch-all rule to log all other requests at the Metadata level.
+  - level: Metadata
+    # Long-running requests like watches that fall under this rule will not
+    # generate an audit event in RequestReceived.
+    omitStages:
+      - "RequestReceived"
+
+  #Logging of PersistentVolumeClaim operations
+  - level: Request
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "v1"
+        resources: ["persistentvolumeclaims"]
+    omitStages:
+      - "RequestReceived"
+
+  #Logging of policy and network policy events
+  - level: Request
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "policy"
+        resources: ["podsecuritypolicies"]
+      - group: "networking.k8s.io"
+        resources: ["networkpolicies"]
+    omitStages:
+      - "RequestReceived"
+
+  # Don't log requests to a configmap called "controller-leader"
+  - level: None
+    resources:
+      - group: ""
+        resources: ["configmaps"]
+        resourceNames: ["controller-leader"]
+
+  # Don't log watch requests by the "system:kube-proxy" on endpoints or services
+  - level: None
+    users: ["system:kube-proxy"]
+    verbs: ["watch"]
+    resources:
+      - group: "" # core API group
+        resources: ["endpoints", "services"]
+
+  # Don't log authenticated requests to certain non-resource URL paths.
+  - level: None
+    userGroups: ["system:authenticated"]
+    nonResourceURLs:
+      - "/api*" # Wildcard matching.
+      - "/version"
+
+  - level: None
+    verbs: ["get", "watch", "list"]
+
+  - level: None
+    resources:
+      - group: "" # core
+        resources: ["events"]
+
+  - level: None
+    verbs: ["list", "watch"]
+    resources:
+      - group: "" # core
+        resources: ["services", "nodes", "serviceaccounts"]
+
+  - level: None
+    users:
+      - "system:serviceaccount:argocd:argocd-application-controller"
+      - "system:serviceaccount:argocd:argocd-rbac"
+      - "system:serviceaccount:argocd:argocd-server"
+      - "system:serviceaccount:kube-system:calico-kube-controllers"
+      - "system:serviceaccount:kube-system:calico-node"
+      - "system:serviceaccount:luntry-master:luntry-master-sbom-operator"
+      - "system:serviceaccount:luntry-master:luntry-master-watcher"
+      - "system:serviceaccount:luntry-slave:luntry-slave-sbom-operator"
+      - "system:serviceaccount:luntry-slave:luntry-slave-watcher"
+      - "system:serviceaccount:kyverno:kyverno"
+      - "system:serviceaccount:kyverno:kyverno-admission-controller"
+      - "system:serviceaccount:kyverno:kyverno-cleanup-controller"
+      - "system:serviceaccount:kyverno:kyverno-cleanup-jobs"
+      - "system:serviceaccount:kyverno:kyverno-reports-controller"
+    verbs: ["*"] # enable all operations
+
+  - level: None
+    resources:
+      - group: "coordination.k8s.io"
+      - group: "admissionregistration.k8s.io"
+      - group: "policy"
+      - group: "kyverno.io"
+      - group: "reports.kyverno.io"
+        resources: ["events"]

@@ -1,0 +1,43 @@
+global
+    maxconn                 4000
+    log                     127.0.0.1 local0
+    stats socket /var/run/haproxy.sock mode 600 level admin
+
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option                  http-server-close
+    option                  redispatch
+    retries                 5
+    timeout http-request    5m
+    timeout queue           5m
+    timeout connect         30s
+    timeout client          5m
+    timeout server          15m
+    timeout http-keep-alive 30s
+    timeout check           30s
+    maxconn                 4000
+
+frontend kube_api_frontend
+    bind {{ kubernetes_loadbalancer_apiserver_ip }}:{{ kubernetes_loadbalancer_apiserver_port }}
+    default_backend kube_api_backend
+    log global
+    mode tcp
+    option tcplog
+    capture request  header Host len 64
+    capture request  header User-Agent len 128
+    capture response header Content-Length len 10
+    capture response header Location len 64
+
+backend kube_api_backend
+    mode tcp
+    balance leastconn
+    option httpchk GET /healthz
+    http-check expect status 200
+    default-server inter 5s downinter 5s rise 2 fall 2 maxconn 1000 maxqueue 256 weight 100
+{% for host in groups[kubernetes_master_group_name] %}
+    server {{ host }}  {{ hostvars[host].ansible_default_ipv4.address }}:{{ kubernetes_apiserver_port }} check check-ssl verify none
+{% endfor %}
+

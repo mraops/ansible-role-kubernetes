@@ -1,0 +1,29 @@
+{% if item.use_http | default(false) %}
+server = "http://{{ item.name }}"
+{% else %}
+server = "https://{{ item.name }}"
+{% endif %}
+
+[host."{% if item.use_http | default(false) %}http{% else %}https{% endif %}://{{ item.name }}"]
+capabilities = {{ item.capabilities | to_json }}
+{% if item.skip_verify | default(false) %}
+skip_verify = true
+{% endif %}
+{% if item.use_http | default(false) %}
+plain_http = true
+{% endif %}
+
+{% if item.username is defined and item.password is defined %}
+[host."{% if item.use_http | default(false) %}http{% else %}https{% endif %}://{{ item.name }}".header]
+authorization = ["Basic {{ (item.username ~ ':' ~ item.password) | b64encode }}"]
+{% elif item.token is defined %}
+[host."{% if item.use_http | default(false) %}http{% else %}https{% endif %}://{{ item.name }}".header]
+authorization = ["Bearer {{ item.token }}"]
+{% endif %}
+
+{% if item.mirrors is defined %}
+{% for mirror in item.mirrors %}
+[host."{{ mirror }}"]
+capabilities = ["pull", "resolve"]
+{% endfor %}
+{% endif %}

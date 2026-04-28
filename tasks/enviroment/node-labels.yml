@@ -1,0 +1,57 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Apply worker node label {{ inventory_hostname }}  --"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Node
+    name: "{{ inventory_hostname | lower}}"
+    state: present
+    definition:
+      metadata:
+        labels: >-
+          {{
+            {
+              'node-role.kubernetes.io/' ~ item: 'true'
+            }
+          }}
+  loop: "{{ kubernetes_node_labels }}"
+  delegate_to: "{{ administrative_master_node }}"
+  when: kubernetes_node_labels | length > 0
+
+- name: "Kubernetes: -- Apply worker node taints {{ inventory_hostname }} --"
+  block:
+    - name: "Kubernetes: -- Get current worker node taints {{ inventory_hostname }} --"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Node
+        name: "{{ inventory_hostname | lower}}"
+      register: kubernetes_worker_node_info
+
+    - name: "Kubernetes: -- Merge worker node taints {{ inventory_hostname }} --"
+      ansible.builtin.set_fact:
+        kubernetes_node_merged_taints: >-
+          {{
+            (
+              (kubernetes_worker_node_info.resources | first).spec.taints | default([])
+            )
+            +
+            (
+              kubernetes_node_taints
+              | rejectattr('key', 'in', ((kubernetes_worker_node_info.resources | first).spec.taints | default([]) | map(attribute='key') | list))
+              | list
+            )
+          }}
+
+    - name: "Kubernetes: -- Apply merged worker node taints {{ inventory_hostname }} --"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ inventory_hostname | lower}}"
+        state: present
+        definition:
+          spec:
+            taints: "{{ kubernetes_node_merged_taints }}"
+  delegate_to: "{{ administrative_master_node }}"
+  when: kubernetes_node_taints | length > 0

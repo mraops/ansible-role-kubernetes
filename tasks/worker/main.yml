@@ -1,0 +1,68 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+
+- name: "Kubernetes: -- Join worker node --"
+  become: true
+  when: inventory_hostname != administrative_master_node and inventory_hostname in groups[kubernetes_worker_group_name]
+  block:
+    - name: "Kubernetes: -- Check if worker node is already joined --"
+      ansible.builtin.stat:
+        path: "/etc/kubernetes/kubelet.conf"
+      register: kubernetes_worker_kubelet_conf_stat
+
+    - name: "Kubernetes: -- Get join command --"
+      ansible.builtin.command:
+        cmd: "kubeadm token create --ttl 120m --print-join-command"
+      register: k8s_join_command
+      run_once: true
+      delegate_to: "{{ administrative_master_node }}"
+
+    - name: "Kubernetes: -- Prepare OS  --"
+      ansible.builtin.import_tasks: "prepare/main.yml"
+      when: not kubernetes_worker_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Install components --"
+      ansible.builtin.import_tasks: "components/main.yml"
+      when: not kubernetes_worker_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Wait for local kubernetes API endpoint --"
+      ansible.builtin.wait_for:
+        host: "{{ kubernetes_loadbalancer_apiserver_ip }}"
+        port: "{{ kubernetes_loadbalancer_apiserver_port }}"
+        timeout: 30
+      when: not kubernetes_worker_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Join worker node  --"
+      ansible.builtin.command:
+        cmd: "{{ k8s_join_command.stdout }}"
+      register: k8s_join_worker_result
+      when: not kubernetes_worker_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Show join worker result   --"
+      ansible.builtin.debug:
+        var: k8s_join_worker_result
+      when:
+        - k8s_join_worker_result is defined
+        - not kubernetes_worker_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Cordon worker node  --"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ inventory_hostname | lower}}"
+        state: present
+        definition:
+          spec:
+            unschedulable: true
+      delegate_to: "{{ administrative_master_node }}"
+      when:
+        - not kubernetes_worker_kubelet_conf_stat.stat.exists
+        - "'kubernetes_first_init'  is not in ansible_run_tags "
+
+    - name: "Kubernetes: -- Apply worker node {{ inventory_hostname }} label --"
+      ansible.builtin.import_tasks:
+        file: enviroment/node-labels.yml
+      when:
+        - not kubernetes_worker_kubelet_conf_stat.stat.exists

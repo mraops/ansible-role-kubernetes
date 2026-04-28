@@ -1,0 +1,82 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Generate join command--"
+  block:
+    - name: "Kubernetes: -- Init upload-certs phase --"
+      ansible.builtin.command:
+        cmd: kubeadm init phase upload-certs --upload-certs
+      register: k8s_upload_certs_certificate
+      changed_when: false
+
+    - name: "Kubernetes: -- Extract certificate key --"
+      ansible.builtin.set_fact:
+        k8s_certificate_key: "{{ k8s_upload_certs_certificate.stdout | regex_search('([a-f0-9]{64})', '\\1') | first }}"
+
+    - name: "Kubernetes: -- Get join command and token --"
+      ansible.builtin.command:
+        cmd: "kubeadm token create --ttl 120m --print-join-command"
+      register: k8s_join_command
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+
+- name: "Kubernetes: -- Join master node --"
+  block:
+    - name: "Kubernetes: -- Check if master node is already joined --"
+      ansible.builtin.stat:
+        path: "/etc/kubernetes/kubelet.conf"
+      register: kubernetes_master_kubelet_conf_stat
+
+    - name: "Kubernetes: -- Prepare OS  --"
+      ansible.builtin.import_tasks: "prepare/main.yml"
+      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Install components --"
+      ansible.builtin.import_tasks: "components/main.yml"
+      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Wait for local kubernetes API endpoint --"
+      ansible.builtin.wait_for:
+        host: "{{ kubernetes_loadbalancer_apiserver_ip }}"
+        port: "{{ kubernetes_loadbalancer_apiserver_port }}"
+        timeout: 30
+      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Join master node {{ inventory_hostname }} --"
+      ansible.builtin.command:
+        cmd: "{{ k8s_join_command.stdout }} --control-plane --certificate-key {{ k8s_certificate_key }}"
+      register: k8s_join_master_result
+      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Show join master result {{ inventory_hostname }}  --"
+      ansible.builtin.debug:
+        var: k8s_join_master_result
+      when:
+        - k8s_join_master_result is defined
+        - not kubernetes_master_kubelet_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Create {{ kubernetes_kubectl_user_home }}/.kube folder --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_kubectl_user_home }}/.kube"
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: "0700"
+
+    - name: "Kubernetes: -- Copy kubectl admin.conf to {{ kubernetes_kubectl_user_home }}/.kube --"
+      ansible.builtin.copy:
+        src: "/etc/kubernetes/admin.conf"
+        dest: "{{ kubernetes_kubectl_user_home }}/.kube/config"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: "0600"
+        remote_src: true
+  become: true
+  when: inventory_hostname != administrative_master_node and inventory_hostname in groups[kubernetes_master_group_name]
+  # rescue:
+  #   - name: "Kubernetes: -- Reset node {{ inventory_hostname }} --"
+  #     ansible.builtin.command: kubeadm reset --force
+  #     changed_when: false
+  #     when: k8s_join_master_result is failed

@@ -1,0 +1,16 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  when: administrative_master_node is undefined
+  block:
+    - name: "Kubernetes: -- Check if TCP port 6443 is open on the master node --"
+      ansible.builtin.wait_for:
+        port: 6443
+        timeout: 1
+      ignore_errors: true
+      register: port_check
+      delegate_to: "{{ item }}"
+      run_once: true
+      loop: "{{ groups[kubernetes_master_group_name] }}"
+
+    - name: "Kubernetes: -- Set administrative_master_node variable with the host where the port check succeeded --"
+      ansible.builtin.set_fact:
+        administrative_master_node: "{{ (port_check.results | selectattr('failed', '==', false) | map(attribute='item') | list) | first }}"

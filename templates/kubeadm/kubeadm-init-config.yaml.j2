@@ -1,0 +1,129 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+nodeRegistration:
+  imagePullPolicy: IfNotPresent
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: "{{ kubernetes_cluster_name }}"
+networking:
+  serviceSubnet: "{{ kubernetes_service_cidr }}"
+  podSubnet: "{{ kubernetes_pod_cidr }}"
+kubernetesVersion: "{{ kubernetes_version }}"
+imageRepository: "{{ kubernetes_image_repository }}"
+controlPlaneEndpoint: "{{ kubernetes_loadbalancer_apiserver_ip }}:{{ kubernetes_loadbalancer_apiserver_port }}"
+{% if kubernetes_disable_kube_proxy | bool or kubernetes_disable_kube_proxy | string == "true" %}
+# Disable  kube-proxy
+skipPhases:
+  - addon/kube-proxy
+{% endif %}
+apiServer:
+  certSANs:
+  - "{{ kubernetes_loadbalancer_apiserver_ip }}"
+{% if kubernetes_apiserver_external_ip is defined and kubernetes_apiserver_external_ip | length > 0 %}
+  - "{{ kubernetes_apiserver_external_ip }}"
+{% endif %}
+{% for san in kubernetes_apiserver_extra_sans %}
+  - "{{ san }}"
+{% endfor %}
+  extraArgs:
+    - name: profiling
+      value: "{{ kubernetes_kubeapi_profiling | default ('false') }}"
+    - name: authorization-mode
+      value: {{ kubernetes_kubeapi_authorization_modes | join(',') }}
+# Kubernetes apiserver audit log setting
+{% if kubernetes_kubeapi_audit_enabled | bool or kubernetes_kubeapi_audit_enabled | string == "true" %}
+    - name: audit-log-path
+      value: "{{ kubernetes_kubeapi_audit_log_path }}"
+    - name: audit-log-maxage
+      value: "{{ kubernetes_kubeapi_audit_log_maxage }}"
+    - name: audit-log-maxbackup
+      value: "{{ kubernetes_kubeapi_audit_log_maxbackups }}"
+    - name: audit-log-maxsize
+      value: "{{ kubernetes_kubeapi_audit_log_maxsize }}"
+    - name: audit-policy-file
+      value: "{{ kubernetes_kubeapi_audit_policy_file }}"
+    - name: authentication-config
+      value: "{{ kubernetes_kubeapi_auth_file }}"
+{% endif %}
+  extraVolumes:
+    - name: {{ kubernetes_kubeapi_audit_policy_name }}
+      hostPath: {{ kubernetes_kubeapi_audit_policy_hostpath }}
+      mountPath: {{ kubernetes_kubeapi_audit_policy_mountpath }}
+      readOnly: true
+      pathType: DirectoryOrCreate
+    - name: {{ kubernetes_kubeapi_audit_log_name }}
+      hostPath: {{ kubernetes_kubeapi_audit_log_hostpath }}
+      mountPath: {{ kubernetes_kubeapi_audit_log_mountpath }}
+      readOnly: false
+      pathType: DirectoryOrCreate
+    - name: {{ kubernetes_kubeapi_auth_name }}
+      hostPath: {{ kubernetes_kubeapi_auth_hostpath }}
+      mountPath: {{ kubernetes_kubeapi_auth_mountpath }}
+      readOnly: true
+      pathType: DirectoryOrCreate
+
+{% if kubernetes_kubeapi_admission_plugins is defined and kubernetes_kubeapi_admission_plugins | length > 0 %}
+    enable-admission-plugins: {{ kubernetes_kubeapi_admission_plugins | join(',') }}
+{% endif %}
+
+controllerManager:
+  extraArgs:
+    - name: cluster-signing-cert-file
+      value: /etc/kubernetes/pki/ca.crt
+    - name: cluster-signing-key-file
+      value: /etc/kubernetes/pki/ca.key
+    - name: cluster-signing-duration
+      value: "{{kubernetes_ca_certificate_validity_period}}0m0s"
+{% if kubernetes_controller_manager_feature_gates is defined and kubernetes_controller_manager_feature_gates|length > 0 %}
+    - name: feature-gates
+      value: "{{ kubernetes_controller_manager_feature_gates | join(',') }}"
+{% endif %}
+    - name: controllers
+      value: "{{ kubernetes_controller_manager_controllers | join(',') }}"
+    - name: profiling
+      value: "{{ kubernetes_controller_manager_profiling | default ('false') }}"
+    - name: terminated-pod-gc-threshold
+      value: "{{ kubernetes_controller_manager_terminated_pod_gc_threshold }}"
+scheduler: {}
+{% if kubernetes_etcd_custom_config is defined and kubernetes_etcd_custom_config %}
+etcd:
+  {{ kubernetes_etcd_custom_config | to_nice_yaml(indent=2) | indent(2) }}
+{% endif %}
+
+{% if kubernetes_core_dns_custom_config is defined and kubernetes_core_dns_custom_config %}
+dns:
+  {{ kubernetes_core_dns_custom_config | to_nice_yaml (indent=2) | indent(2)}}
+{% endif %}
+certificateValidityPeriod: {{ kubernetes_client_certificate_validity_period }} 
+caCertificateValidityPeriod: {{ kubernetes_ca_certificate_validity_period }}  
+
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: "{{ kubernetes_cgroup_driver }}"
+eventBurst: {{ kubernetes_kubelet_event_burst }}
+eventRecordQPS: {{ kubernetes_kubelet_event_qps }}
+failSwapOn: true
+kubeAPIBurst: {{ kubernetes_kubelet_kubeapi_burst }}
+kubeAPIQPS: {{ kubernetes_kubelet_kubeapi_qps }}
+registryBurst: {{ kubernetes_kubelet_registry_burst }}
+registryPullQPS: {{ kubernetes_kubelet_registry_qps }}
+rotateCertificates: true
+serverTLSBootstrap: true
+serializeImagePulls: false
+{% if kubernetes_kubelet_system_reserved and kubernetes_kubelet_kube_reserved | length > 0 %}
+systemReserved:
+  {{ kubernetes_kubelet_system_reserved | to_nice_yaml | indent(2, False) }}
+{% endif %}
+{% if kubernetes_kubelet_kube_reserved and kubernetes_kubelet_kube_reserved | length > 0 %}
+kubeReserved:
+  {{ kubernetes_kubelet_kube_reserved | to_nice_yaml | indent(2, False) }}
+{% endif %}
+{% for k in kubernetes_kubelet_config_extra_opts.keys() %}
+{{ k }}: {{ kubernetes_kubelet_config_extra_opts[k] }}
+{% endfor %}
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+metricsBindAddress: "{{ kubernetes_kubeproxy_metrics_bind_address }}"

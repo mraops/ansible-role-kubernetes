@@ -1,0 +1,32 @@
+- name: --- Add Kubernetes dnf repository ---
+  ansible.builtin.yum_repository:
+    name: kubernetes.io
+    description: Kubernetes packages
+    baseurl: "{{ kubernetes_dnf_repo }}"
+    gpgcheck: false
+    enabled: true
+    username: "{{ kubernetes_dnf_repo_username }}"
+    password: "{{ kubernetes_dnf_repo_password }}"
+  become: true
+  when: kubernetes_dnf_repo | length > 1
+
+- name: "Kubernetes Components: -- Install kubernetes packages --"
+  ansible.builtin.dnf:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop: "{{ kubernetes_packages }}"
+  register: kubernetes_packages_install_result
+
+- name: "Kubernetes Components: -- Install haproxy packages --"
+  ansible.builtin.dnf:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop: "{{ kubernetes_haproxy_packages + ['iproute-tc'] }}"
+
+- name: "Kubernetes Components: -- Add version locks for Kubernetes packages --"
+  ansible.builtin.command: "dnf versionlock add {{ item }}"
+  become: true
+  loop: "{{ kubernetes_packages }}"
+  when: kubernetes_packages_install_result.changed

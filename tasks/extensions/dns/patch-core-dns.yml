@@ -1,0 +1,53 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: Patch Core DNS service
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+  block:
+    - name: Copy CoreDNS ConfigMap
+      ansible.builtin.copy:
+        src: "coredns/coredns.yml"
+        dest: "/tmp/coredns.yml"
+        mode: "0644"
+
+    - name: Patch CoreDNS ConfigMap
+      kubernetes.core.k8s:
+        src: "/tmp/coredns.yml"
+        state: present
+        namespace: "kube-system"
+    # BUG: сделать добавление аннотации в сервис projectcalico.org/natExcludeService: true при отключенном kube-proxy
+    - name: Patch CoreDNS Deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: coredns
+            namespace: "kube-system"
+          spec:
+            template:
+              spec:
+                affinity:
+                  podAntiAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      - labelSelector:
+                          matchExpressions:
+                            - key: k8s-app
+                              operator: In
+                              values:
+                                - kube-dns
+                        topologyKey: kubernetes.io/hostname
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                        - matchExpressions:
+                            - key: "node-role.kubernetes.io/{{ kubernetes_coredns_node_labels }}"
+                              operator: Exists
+    - name: Delete CoreDNS ConfigMap
+      ansible.builtin.file:
+        path: "/tmp/coredns.yml"
+        state: absent

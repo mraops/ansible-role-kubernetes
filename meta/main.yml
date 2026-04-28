@@ -1,0 +1,26 @@
+galaxy_info:
+  author: Armen Akopyan
+  description: Kubernetes platform automation and infrastructure management role (DevOps / Platform Engineering)
+  company: Personal / Enterprise projects
+
+  license: MIT
+
+  min_ansible_version: "2.17"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+
+  galaxy_tags:
+    - devops
+    - haproxy
+    - ansible
+    - automation
+    - cicd
+    - infrastructure
+    - platform
+    - linux
+
+dependencies: []

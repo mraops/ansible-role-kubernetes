@@ -1,0 +1,119 @@
+- block:
+    - name: Check CNI files exists
+      ansible.builtin.stat: path=/etc/cni/net.d/calico-kubeconfig
+      register: cni_file_check
+
+    - name: Fortify CNI files
+      ansible.builtin.file:
+        path: /etc/cni/net.d/calico-kubeconfig
+        owner: root
+        group: root
+        mode: "0600"
+      when: cni_file_check.stat.exists
+  become: true
+  when: inventory_hostname in groups[kubernetes_master_group_name]
+
+- block:
+    - name: Ensure ControlPlane files ownership and modes are secure
+      ansible.builtin.file:
+        path: "{{ item.file }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      with_items:
+        - {
+          file: "/etc/kubernetes/manifests/kube-apiserver.yaml",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/manifests/kube-controller-manager.yaml",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/manifests/kube-scheduler.yaml",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/manifests/etcd.yaml",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - { file: "/var/lib/etcd", mode: "0700", owner: "root", group: "root" }
+        - {
+          file: "/etc/kubernetes/admin.conf",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/controller-manager.conf",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/scheduler.conf",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+        - {
+          file: "/etc/kubernetes/pki/",
+          mode: "0600",
+          owner: "root",
+          group: "root",
+        }
+
+    - name: Find all .key files on the remote server
+      ansible.builtin.find:
+        paths: /etc/kubernetes/pki
+        patterns: "*.key"
+      register: key_files
+
+    - name: Ensure PKI Key files ownership and modes are secure
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: "root"
+        group: "root"
+        mode: "0600"
+      loop: "{{ key_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when: key_files.files | length > 0
+  become: true
+  when: inventory_hostname in groups[kubernetes_master_group_name]
+
+- name: Ensure Worker files ownership and modes are secure
+  ansible.builtin.file:
+    path: "{{ item.file }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - {
+      file: "/etc/kubernetes/kubelet.conf",
+      mode: "0600",
+      owner: "root",
+      group: "root",
+    }
+    - {
+      file: "/etc/kubernetes/pki/ca.crt",
+      mode: "0600",
+      owner: "root",
+      group: "root",
+    }
+    - {
+      file: "/var/lib/kubelet/config.yaml",
+      mode: "0600",
+      owner: "root",
+      group: "root",
+    }
+  become: true
+  when: inventory_hostname in groups[kubernetes_worker_group_name]

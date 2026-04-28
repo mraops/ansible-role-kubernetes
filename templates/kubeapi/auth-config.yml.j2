@@ -1,0 +1,32 @@
+apiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration
+anonymous:
+  enabled: true
+  conditions:
+    - path: /livez
+    - path: /readyz
+    - path: /healthz
+    - path: /api/v1/namespaces/kube-public/configmaps/cluster-info
+{% if kubernetes_kubeapi_auth_jwt_auth_enabled | bool  or kubernetes_kubeapi_auth_jwt_auth_enabled | string == "true" %}
+jwt:
+  - issuer:
+      url: {{ kubernetes_kubeapi_auth_jwt_auth_issuer_url }}
+      discoveryURL: {{ kubernetes_kubeapi_auth_jwt_auth_issuer_discovery_url }}
+{% for audience in kubernetes_kubeapi_auth_jwt_auth_audiences %}
+      audiences:
+        - {{ audience }}
+{% endfor %}
+      audienceMatchPolicy: MatchAny
+      certificateAuthority: |
+        {{ lookup('file', kubernetes_kubeapi_auth_jwt_auth_ca_file) | indent(8) }}
+    claimMappings:
+      username:
+        claim: {{ kubernetes_kubeapi_auth_jwt_auth_username_claim }}
+        prefix: {{ kubernetes_kubeapi_auth_jwt_auth_username_prefix | default ('') or '""'  }}
+      groups:
+        claim: {{ kubernetes_kubeapi_auth_jwt_auth_groups_claim }}
+        prefix: {{ kubernetes_kubeapi_auth_jwt_auth_groups_prefix | default ('')  or '""' }}
+    userValidationRules:
+      - expression: "!user.username.startsWith('system:')"
+        message: "username cannot use reserved system: prefix"
+{% endif %}

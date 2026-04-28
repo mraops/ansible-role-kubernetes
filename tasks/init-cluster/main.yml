@@ -1,0 +1,120 @@
+- name: "Kubernetes: -- First init kubernetes cluster --"
+  block:
+    - name: "Kubernetes: -- Prepare OS  --"
+      ansible.builtin.import_tasks: "prepare/main.yml"
+
+    - name: "Kubernetes: -- Install components --"
+      ansible.builtin.import_tasks: "components/main.yml"
+
+    - name: "Kubernetes: -- Convert and validate certificate periods --"
+      ansible.builtin.set_fact:
+        cert_hours: "{{ kubernetes_client_certificate_validity_period | regex_replace('h', '') | int }}"
+        ca_cert_hours: "{{ kubernetes_ca_certificate_validity_period | regex_replace('h', '') | int }}"
+
+    - name: "Kubernetes: -- Validate certificate periods --"
+      ansible.builtin.fail:
+        msg: >
+          CA certificate validity period ({{ kubernetes_ca_certificate_validity_period }} = {{ ca_cert_hours }} hours)
+          must be greater than or equal to
+          client certificate validity period ({{ kubernetes_client_certificate_validity_period }} = {{ cert_hours }} hours)
+      when: ca_cert_hours < cert_hours
+
+    - name: "Kubernetes: -- Copy kubeadm init-config file --"
+      ansible.builtin.template:
+        src: kubeadm/kubeadm-init-config.yaml.j2
+        dest: "{{ kubernetes_tmp_configs_dir }}/kubeadm-init-config.yaml"
+        mode: "0644"
+
+    - name: "Kubernetes: -- Check if cluster is already initialized --"
+      ansible.builtin.stat:
+        path: "/etc/kubernetes/admin.conf"
+      register: kubernetes_admin_conf_stat
+
+    - name: Show warning and ask for confirmation
+      ansible.builtin.pause:
+        prompt: "Attention!!! You are about to initialize the Kubernetes cluster. Are you sure? (yes/no)"
+      register: confirmation
+      when: not kubernetes_admin_conf_stat.stat.exists
+
+    - name: Fail if user did not confirm
+      ansible.builtin.fail:
+        msg: "Action canceled by the user."
+      when:
+        - not kubernetes_admin_conf_stat.stat.exists
+        - confirmation.user_input | lower != 'yes'
+
+
+    - name: "Kubernetes: -- Run kubeadm init --"
+      ansible.builtin.shell:
+        cmd: "kubeadm init --config  {{ kubernetes_tmp_configs_dir }}/kubeadm-init-config.yaml"
+      register: kubeadm_init_result
+      when: not kubernetes_admin_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Show kubeadm init result --"
+      ansible.builtin.debug:
+        var: kubeadm_init_result
+      when:
+        - kubeadm_init_result is defined
+        - not kubernetes_admin_conf_stat.stat.exists
+
+    - name: "Kubernetes: -- Create {{ kubernetes_kubectl_user_home }}/.kube folder --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_kubectl_user_home }}/.kube"
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: "0700"
+
+    - name: "Kubernetes: -- Copy kubectl admin.conf to {{ kubernetes_kubectl_user_home }}/.kube --"
+      ansible.builtin.copy:
+        src: "/etc/kubernetes/admin.conf"
+        dest: "{{ kubernetes_kubectl_user_home }}/.kube/config"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: "0600"
+        remote_src: true
+
+    - name: "Kubernetes: -- Remove kubeadm init-config file --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/kubeadm-init-config.yaml"
+        state: absent
+
+    - name: "Kubernetes: -- Install Cailio CNI plugin --"
+      ansible.builtin.import_tasks:
+        file: extensions/cni/calico.yml
+
+    - name: "Kubernetes: -- Install node local dns --"
+      ansible.builtin.import_tasks:
+        file: extensions/dns/node-local-dns.yml
+
+    - name: "Kubernetes: -- Patch CoreDNS settings  --"
+      ansible.builtin.import_tasks:
+        file: extensions/dns/patch-core-dns.yml
+
+    - name: "Kubernetes: -- Install kubernetes metrics server --"
+      ansible.builtin.import_tasks:
+        file: extensions/metrics/metrics-server.yml
+
+    - name: "Kubernetes: -- Install kubelet csr approver --"
+      ansible.builtin.import_tasks:
+        file: extensions/csr/kubelet-csr-approver.yml
+      when: kubernetes_extensions_kubelet_csr_approver_enabled | bool or kubernetes_extensions_kubelet_csr_approver_enabled | string == "true"
+  become: true
+  run_once: true
+  delegate_to: "{{ groups[kubernetes_master_group_name][0] }}"
+
+- name: "Kubernetes: -- Add secondary master nodes --"
+  ansible.builtin.import_tasks: "master/main.yml"
+
+- name: "Kubernetes: -- Add worker nodes --"
+  ansible.builtin.import_tasks: "worker/main.yml"
+
+- name: "Kubernetes: -- apply CIS settings --"
+  ansible.builtin.import_tasks: "cis-settings/main.yml"
+
+- name: "Kubernetes: -- Download kubernetes admin.conf to local  --"
+  ansible.builtin.fetch:
+    src: "/etc/kubernetes/admin.conf"
+    dest: "{{ local_ansible_user }}/{{ kubernetes_cluster_name | lower }}.yaml"
+    flat: true
+  run_once: true

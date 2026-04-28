@@ -1,0 +1,22 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Install kubernetes metrics server --"
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+  block:
+    - name: "Kubernetes: -- Copy kubernetes metrics server manifest --"
+      ansible.builtin.template:
+        src: "manifests/metrics/metrics-server.yml.j2"
+        dest: "{{ kubernetes_tmp_configs_dir }}/metrics-server.yml"
+        mode: "0644"
+    - name: "Kubernetes: -- Install kubernetes metrics server --"
+      ansible.builtin.k8s:
+        src: "{{ kubernetes_tmp_configs_dir }}/metrics-server.yml"
+        state: present
+    - name: "Kubernetes: -- Remove kubernetes metrics server manifest --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/metrics-server.yml"
+        state: absent

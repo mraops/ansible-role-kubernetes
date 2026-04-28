@@ -1,0 +1,81 @@
+- name: "Kubernetes Prepare: -- Ensure  system hostname is FQDN --"
+  block:
+    - name: Set system hostname to FQDN
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname | lower }}"
+
+- name: "Kubernetes Prepare: -- Load the br_netfilter kernel module --"
+  ansible.builtin.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: "Kubernetes Prepare: -- Ensure br_netfilter is loaded on boot --"
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/containerd.conf
+    line: "{{ item }}"
+    create: true
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: "Kubernetes Prepare: -- Set sysctl parameters --"
+  become: true
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    # https://github.com/istio/istio/issues/36821
+    - name: fs.inotify.max_user_watches
+      value: 1048576
+    - name: fs.inotify.max_user_instances
+      value: 1024
+    - name: net.bridge.bridge-nf-call-iptables
+      value: 1
+    - name: net.bridge.bridge-nf-call-ip6tables
+      value: 1
+    - name: net.ipv4.ip_forward
+      value: 1
+
+- name: "Kubernetes Prepare: -- Ensure nodePort range is reserved --"
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_local_reserved_ports
+    value: "{{ kubernetes_node_port_range }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  when: kubernetes_node_port_range is defined
+
+- name: "Kubernetes Prepare: -- Disable swap --"
+  ansible.builtin.command: "swapoff -a"
+  become: true
+
+- name: "Kubernetes Prepare: -- Remove current swaps from fstab --"
+  ansible.builtin.lineinfile:
+    dest: /etc/fstab
+    regexp: '(?i)^([^#][\S]+\s+(none|swap)\s+swap.*)'
+    line: '# \1'
+    backrefs: true
+    state: present
+  become: true
+
+- name: "Kubernetes Prepare: -- Create kube-api audit policy --"
+  block:
+    - name: "Kubernetes Prepare: -- Ensure audit policy folder exists --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_kubeapi_audit_policy_hostpath }}"
+        state: directory
+      become: true
+    - name: "Kubernetes Prepare: -- Copy audit policy file --"
+      ansible.builtin.template:
+        src: policies/audit-policy.yml.j2
+        dest: "{{ kubernetes_kubeapi_audit_policy_file }}"
+        mode: "0644"
+      become: true
+  when: inventory_hostname in groups[kubernetes_master_group_name]

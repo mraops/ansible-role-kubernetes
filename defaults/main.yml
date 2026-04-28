@@ -1,0 +1,214 @@
+---
+# defaults file for roles/kubernetes
+local_ansible_user: "{{ lookup('env', 'HOME') }}"
+kubernetes_kubectl_user_home: "{{ ansible_user_dir }}"
+kubernetes_node_labels: []
+kubernetes_node_taints: []
+
+kubernetes_master_group_name: "kubernetes_master"
+kubernetes_worker_group_name: "kubernetes_worker"
+kubernetes_crictl_url: "" # https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.30.0/crictl-v1.30.0-linux-amd64.tar.gz
+kubernetes_haproxy_packages:
+  - haproxy
+  - socat
+  # TODO: нужен там где есть selinux
+  # - policycoreutils-python-utils
+kubernetes_haproxy_oom_score_adjust: -900
+kubernetes_haproxy_restart_sec: 5s
+
+kubernetes_dnf_repo: "" # "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[:2] | join('.') }}/rpm/"
+kubernetes_dnf_repo_username: ""
+kubernetes_dnf_repo_password: ""
+kubernetes_packages:
+  - kubeadm={{ kubernetes_version }}*
+  - kubelet={{ kubernetes_version }}*
+  - kubectl={{ kubernetes_version }}*
+  - containerd.io={{ kubernetes_containerd_package_version }}
+  - python3-kubernetes
+  - python3-openshift
+
+kubernetes_config_dir: "/etc/kubernetes"
+kubernetes_manifests_dir: "{{ kubernetes_config_dir }}/manifests"
+kubernetes_tmp_configs_dir: /tmp
+kubernetes_cluster_name: "kubernetes"
+kubernetes_pod_cidr: "10.137.0.0/18"
+kubernetes_service_cidr: "10.137.64.0/18"
+kubernetes_version: "1.33"
+kubernetes_node_port_range: 30000-32767
+kubernetes_image_repository: "registry.k8s.io"
+kubernetes_loadbalancer_apiserver_ip: "127.0.0.1"
+kubernetes_loadbalancer_apiserver_port: 8443
+kubernetes_apiserver_port: "6443"
+kubernetes_apiserver_external_ip: ""
+kubernetes_apiserver_extra_sans: "{{ groups[kubernetes_master_group_name] }}"
+kubernetes_client_certificate_validity_period: "8760h" # Default: 8760h  # 365 days × 24 hours = 1 year
+kubernetes_ca_certificate_validity_period: "87600h" # Default: 87600h #  365 days × 24 hours * 10 = 10 years
+
+# Containerd settings
+kubernetes_containerd_cni_bin_dir: "/opt/cni/bin"
+# TODO: Сделать проверку версии
+kubernetes_containerd_sandbox_image: "{{ kubernetes_image_repository }}/pause:3.9"
+kubernetes_containerd_package_version: "1.7.27-1"
+kubernetes_containerd_private_registries_config_dir: "/etc/containerd/registries.d"
+kubernetes_containerd_private_registries:
+  []
+  # - name: "registry.example.com:5000"
+  #   capabilities: ["pull", "resolve", "push"]
+  #   use_http: true
+  #   token: "token" # Bearer token
+  # - name: "harbor.company.local"
+  #   capabilities: ["pull", "resolve"]
+  #   skip_verify: true
+  #   mirrors:
+  #     - "https://mirror1.company.local"
+  #     - "https://mirror2.company.local"
+  # - name: "docker.io"
+  #   capabilities: ["pull", "resolve"]
+  #   username: user
+  #   password: password
+  #   mirrors:
+  #     - "https://mirror.gcr.io"
+
+# Kubernetes apiserver audit log setting
+kubernetes_kubeapi_audit_enabled: true
+kubernetes_kubeapi_audit_log_path: /var/log/kubernetes/kubeapi/audit.log
+kubernetes_kubeapi_audit_log_maxage: 14
+kubernetes_kubeapi_audit_log_maxbackups: 5
+kubernetes_kubeapi_audit_log_maxsize: 50
+kubernetes_kubeapi_audit_log_name: apiserver-logs
+kubernetes_kubeapi_audit_log_hostpath: "{{ kubernetes_kubeapi_audit_log_path | dirname }}"
+kubernetes_kubeapi_audit_log_mountpath: "{{ kubernetes_kubeapi_audit_log_path | dirname }}"
+
+kubernetes_kubeapi_audit_policy_file: "{{ kubernetes_config_dir }}/policies/audit-policy.yml"
+kubernetes_kubeapi_audit_policy_name: audit-policy
+kubernetes_kubeapi_audit_policy_hostpath: "{{ kubernetes_kubeapi_audit_policy_file | dirname }}"
+kubernetes_kubeapi_audit_policy_mountpath: "{{ kubernetes_kubeapi_audit_policy_file | dirname }}"
+
+kubernetes_kubeapi_profiling: "false"
+kubernetes_kubeapi_authorization_modes: ["Node", "RBAC"]
+
+# Kubernetes auth setting
+kubernetes_kubeapi_auth_name: "k8s-auth"
+kubernetes_kubeapi_auth_file: "{{ kubernetes_config_dir }}/auth/config.yaml"
+kubernetes_kubeapi_auth_hostpath: "{{ kubernetes_kubeapi_auth_file | dirname }}"
+kubernetes_kubeapi_auth_mountpath: "{{ kubernetes_kubeapi_auth_file | dirname }}"
+
+kubernetes_kubeapi_auth_jwt_auth_enabled: false
+kubernetes_kubeapi_auth_jwt_auth_ca_file: "" # path to ca file for kubernetes_kubeapi_auth_jwt_auth_issuer_url
+kubernetes_kubeapi_auth_jwt_auth_audiences: [] # ["kubernetes"]
+kubernetes_kubeapi_auth_jwt_auth_issuer_url: "" # https://example.com
+kubernetes_kubeapi_auth_jwt_auth_issuer_discovery_url: "" # https://example.com/.well-known/openid-configuration
+kubernetes_kubeapi_auth_jwt_auth_username_claim: "email"
+kubernetes_kubeapi_auth_jwt_auth_groups_claim: "groups"
+kubernetes_kubeapi_auth_jwt_auth_username_prefix: ""
+kubernetes_kubeapi_auth_jwt_auth_groups_prefix: ""
+
+
+# Kubernetes kubeapi admission plugins
+kubernetes_kubeapi_admission_plugins: []
+
+# Kubernetes controller manager setting
+kubernetes_controller_manager_controllers:
+  ["*", "csrapproving", "bootstrapsigner", "tokencleaner"]
+kubernetes_controller_manager_feature_gates:
+  ["RotateKubeletServerCertificate=true"]
+kubernetes_controller_manager_profiling: "false"
+kubernetes_controller_manager_terminated_pod_gc_threshold: 100
+
+# Kubernetes kubelet setting
+kubernetes_cgroup_driver: "systemd"
+kubernetes_kubelet_event_burst: 20
+kubernetes_kubelet_event_qps: 30
+kubernetes_kubelet_kubeapi_burst: 10
+kubernetes_kubelet_kubeapi_qps: 20
+kubernetes_kubelet_registry_burst: 20
+kubernetes_kubelet_registry_qps: 30
+kubernetes_kubelet_system_reserved:
+  { cpu: 250m, memory: 512Mi, ephemeral-storage: 1Gi }
+kubernetes_kubelet_kube_reserved:
+  { cpu: 250m, memory: 512Mi, ephemeral-storage: 1Gi }
+kubernetes_kubelet_config_extra_opts: {}
+
+# Kubernetes kube-proxy setting
+kubernetes_disable_kube_proxy: false
+kubernetes_kubeproxy_metrics_bind_address: "0.0.0.0:10249"
+
+# Kubernetes node local dns setting
+kubernetes_node_local_dns_ip: "169.254.64.10"
+kubernetes_node_local_dns_domain: "cluster.local"
+kubernetes_extensions_node_local_dns_image_repo: "registry.k8s.io/dns/k8s-dns-node-cache"
+kubernetes_extensions_node_local_dns_image_tag: "1.24.0"
+
+# Kubernetes coredns setting
+kubernetes_coredns_node_labels: "master"
+
+# Kubernetes csr approving setting
+kubernetes_extensions_kubelet_csr_approver_enabled: false
+kubernetes_extensions_kubelet_csr_approver_image_repo: "postfinance/kubelet-csr-approver"
+kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.6"
+kubernetes_extensions_kubelet_csr_approver_provider_regex: ^.*\.example\.com$
+kubernetes_extensions_kubelet_csr_approver_node_labels: "master"
+
+# Kubernetes calico setting
+
+kubernetes_tigera_image_repository: "quay.io/tigera/operator"
+kubernetes_tigera_image_tag: v1.38.6
+kubernetes_calico_image_repository: "docker.io"
+kubernetes_calico_apiserver_enabled: false
+kubernetes_calico_observability_enabled: false
+# One of: Iptables, BPF, VPP, Nftables https://docs.tigera.io/calico/latest/reference/installation/api#linuxdataplaneoption
+kubernetes_calico_dataplane_type: "Iptables"
+# One of: IPIP, VXLAN, IPIPCrossSubnet, VXLANCrossSubnet, None https://docs.tigera.io/calico/latest/reference/installation/api#encapsulationtype
+kubernetes_calico_encapulation_type: "IPIP"
+# https://github.com/projectcalico/calico/releases/latest/download/calicoctl-linux-amd64
+kubernetes_calicoctl_url: ""
+
+# nginx-proxy settings
+kubernetes_loadbalancer_apiserver_keepalive_timeout: 5m
+kubernetes_loadbalancer_apiserver_healthcheck_port: 8888
+kubernetes_loadbalancer_apiserver_cpu: 100m
+kubernetes_loadbalancer_apiserver_memory: 128Mi
+kubernetes_loadbalancer_nginx_image_repo: ""
+kubernetes_loadbalancer_nginx_image_tag: ""
+kubernetes_loadbalancer_nginx_config_dir: "/etc/nginx"
+
+# Metrics-server
+kubernetes_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
+kubernetes_metrics_server_image_tag: "v0.7.2"
+kubernetes_metrics_server_node_labels: "app"
+
+# extensions settings
+kubernetes_extensions_ingress_nginx_http_node_port: 30080
+kubernetes_extensions_ingress_nginx_https_node_port: 30443
+
+# Python packages
+kubernetes_python_package: "kubernetes==31.0.0"
+kubernetes_pip_binary_path: "pip3" # "/usr/bin/python3.11-pip"
+kubernetes_pip_extra_args: "" # "-i https://some.repo.org/pypi/pipy-virtual/simple"
+
+# Custom ClusterConfiguration
+kubernetes_etcd_custom_config:
+  {}
+  # local:
+  #   imageRepository: "registry.k8s.io"
+  #   imageTag: "3.2.24"
+  #   dataDir: "/var/lib/etcd"
+  #   extraArgs:
+  #   listen-client-urls: "http://10.100.0.1:2379"
+  #   serverCertSANs:
+  #     - "ec2-10-100-0-1.compute-1.amazonaws.com"
+  #   peerCertSANs:
+  #     - "10.100.0.1"
+  # # external:
+  #   # endpoints:
+  #   # - "10.100.0.1:2379"
+  #   # - "10.100.0.2:2379"
+  #   # caFile: "/etcd/kubernetes/pki/etcd/etcd-ca.crt"
+  #   # certFile: "/etcd/kubernetes/pki/etcd/etcd.crt"
+  #   # keyFile: "/etcd/kubernetes/pki/etcd/etcd.key"
+
+kubernetes_core_dns_custom_config:
+  {}
+  # dns:
+  #   imageRepository: "registry.k8s.io"
+  #   imageTag: "0.0.1"

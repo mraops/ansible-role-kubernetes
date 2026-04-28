@@ -1,0 +1,24 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Install kubelet csr approver --"
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+  block:
+    - name: "Kubernetes: -- Copy kubelet csr approver manifest --"
+      ansible.builtin.template:
+        src: "manifests/csr/kubelet-csr-approver.yml.j2"
+        dest: "{{ kubernetes_tmp_configs_dir }}/kubelet-csr-approver.yml"
+        mode: "0644"
+#TODO: при применении делоймент не пеустанавливаетя а патчится, старые некорректные параметры не удаляются
+    - name: "Kubernetes: -- Install kubelet csr approver --"
+      ansible.builtin.k8s:
+        src: "{{ kubernetes_tmp_configs_dir }}/kubelet-csr-approver.yml"
+        state: present
+
+    - name: "Kubernetes: -- Remove kubelet csr approver manifests --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/kubelet-csr-approver.yml"
+        state: absent
