@@ -4,6 +4,26 @@
 
 Формат ориентирован на Keep a Changelog.
 
+## [1.1.0] - 2026-05-05
+
+### Changed
+
+- **Calico CNI**: единый файл `install-calico-operator.yml.j2` заменён на версионированные директории по версии Helm chart'а Tigera operator (`templates/manifests/cni/calico/v3.32.0/`).
+- **Задача установки Calico** (`tasks/extensions/cni/calico.yml`): переписана на динамический поиск манифестов через `with_filetree` и `ansible.builtin.find` вместо фиксированного списка файлов.
+- **Переменная `kubernetes_calico_cni_image_repository`**: теперь подставляется только как registry (например `quay.io`), полный путь образа (`tigera/operator:v1.40.8`) остаётся из `helm template`.
+- **defaults/main.yml**: добавлена переменная `kubernetes_calico_chart_version` для указания активной версии чарта.
+
+### Removed
+
+- Файл `templates/manifests/cni/calico/install-calico-operator.yml.j2` — заменён версионированными манифестами.
+- Переменная `kubernetes_tigera_image_tag` — тег образа берётся из сгенерированного манифеста.
+
+### Added
+
+- `templates/manifests/cni/calico/v3.32.0/` — версионированные манифесты Tigera operator (Helm chart v3.32.0, operator v1.40.8).
+- `tools/cni/build-calico.sh` — скрипт генерации манифестов из Helm chart с подстановкой Jinja2 для registry.
+- `tools/cni/push-calico-images.sh` — скрипт публикации Calico-образов в приватный registry (14 Linux-образов).
+
 ## [1.0.1] - 2026-04-22
 
 ### Changed

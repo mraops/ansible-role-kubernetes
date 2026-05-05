@@ -150,10 +150,10 @@ kubernetes_extensions_kubelet_csr_approver_provider_regex: ^.*\.example\.com$
 kubernetes_extensions_kubelet_csr_approver_node_labels: "master"
 
 # Kubernetes calico setting
-
-kubernetes_tigera_image_repository: "quay.io/tigera/operator"
-kubernetes_tigera_image_tag: v1.38.6
-kubernetes_calico_image_repository: "docker.io"
+# Helm chart version determines the operator manifest structure
+kubernetes_calico_chart_version: "v3.32.0"
+kubernetes_calico_cni_image_repository: "quay.io"
+kubernetes_calico_typha_replicas: 1
 kubernetes_calico_apiserver_enabled: false
 kubernetes_calico_observability_enabled: false
 # One of: Iptables, BPF, VPP, Nftables https://docs.tigera.io/calico/latest/reference/installation/api#linuxdataplaneoption

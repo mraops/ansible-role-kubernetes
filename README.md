@@ -111,11 +111,41 @@ kubernetes_containerd_package_version: "1.7.27-1"
 kubernetes_containerd_private_registries_config_dir: "/etc/containerd/registries.d"
 ```
 
-### Calico / Metrics / DNS
+### Calico
 
 ```yaml
-kubernetes_tigera_image_repository: "quay.io/tigera/operator"
-kubernetes_calico_image_repository: "docker.io"
+kubernetes_calico_chart_version: "v3.32.0"
+kubernetes_calico_cni_image_repository: "quay.io"
+kubernetes_calico_dataplane_type: "Iptables"
+kubernetes_calico_encapulation_type: "IPIP"
+```
+
+Манифесты Tigera operator хранятся в версионированных директориях:
+
+```
+templates/manifests/cni/calico/
+  v3.32.0/
+    values.yaml
+    manifests/             # helm template --output-dir
+  init-calico.yml.j2      # Installation CR
+```
+
+Для генерации манифестов новой версии и публикации образов в приватный registry:
+
+```bash
+# Генерация манифестов из Helm chart
+./tools/cni/build-calico.sh v3.32.0
+
+# Публикация образов в приватный registry
+./tools/cni/push-calico-images.sh v3.32.0 harbor.company.local/calico
+
+# Предварительный просмотр (без push)
+./tools/cni/push-calico-images.sh v3.32.0 harbor.company.local/calico --dry-run
+```
+
+### Metrics / DNS
+
+```yaml
 kubernetes_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
 kubernetes_extensions_node_local_dns_image_repo: "registry.k8s.io/dns/k8s-dns-node-cache"
 ```
@@ -152,9 +182,7 @@ kubernetes_worker_group_name: "k8s_workers"
 kubernetes_image_repository: "repo.example.com"
 kubernetes_containerd_sandbox_image: "{{ kubernetes_image_repository }}/pause:3.10"
 
-kubernetes_tigera_image_repository: "{{ kubernetes_image_repository }}/tigera/operator"
-kubernetes_tigera_image_tag: "v1.36.5"
-kubernetes_calico_image_repository: "{{ kubernetes_image_repository }}"
+kubernetes_calico_cni_image_repository: "{{ kubernetes_image_repository }}"
 
 kubernetes_extensions_kubelet_csr_approver_enabled: true
 kubernetes_extensions_kubelet_csr_approver_provider_regex: "^.*\\.example\\.com$"

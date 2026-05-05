@@ -4,7 +4,8 @@ kind: Installation
 metadata:
   name: default
 spec:
-  registry: "{{ kubernetes_calico_image_repository }}"
+  registry: "{{ kubernetes_calico_cni_image_repository }}"
+  controlPlaneReplicas: {{ kubernetes_calico_typha_replicas | default(1) }}
   # Configures Calico networking.
   calicoNetwork:
     linuxDataplane: "{{ kubernetes_calico_dataplane_type }}"
@@ -17,6 +18,8 @@ spec:
       nodeSelector: all()
 
 {% if kubernetes_calico_dataplane_type == "BPF" %}
+---
+# This section configures the Kubernetes services endpoint.
 kind: ConfigMap
 apiVersion: v1
 metadata:

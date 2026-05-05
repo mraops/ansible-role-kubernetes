@@ -1,0 +1,15 @@
+installation:
+  enabled: false
+
+# apiServer configures the Calico API server, needed for interacting with
+# the projectcalico.org/v3 suite of APIs.
+apiServer:
+  enabled: false
+
+# goldmane configures the Calico Goldmane flow aggregator.
+goldmane:
+  enabled: false
+
+# whisker configures the Calico Whisker observability UI.
+whisker:
+  enabled: false
