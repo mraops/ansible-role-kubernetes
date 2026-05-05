@@ -52,12 +52,12 @@
   tags:
     - kubernetes_install_kubelet_csr_approver
 
-- name: "Kubernetes: -- Install ingress controller nginx --"
+- name: "Kubernetes: -- Install ingress controller traefik --"
   ansible.builtin.import_tasks:
-    file: extensions/ingress/ingress-nginx.yml
-  when: "'kubernetes_install_ingress_nginx'  in ansible_run_tags"
+    file: extensions/ingress/traefik.yml
+  when: "'kubernetes_install_ingress'  in ansible_run_tags"
   tags:
-    - kubernetes_install_ingress_nginx
+    - kubernetes_install_ingress
 
 - name: "Kubernetes: -- Install kubernetes metrics server --"
   ansible.builtin.import_tasks:

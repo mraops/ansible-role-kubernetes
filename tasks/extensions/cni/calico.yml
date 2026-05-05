@@ -38,7 +38,6 @@
       register: calico_manifest_files
 
     # BUG: calico-typha/calico-apiserver не устанавливаются под и нод аффинити
-    # BUG: надо перепроверить что apply проходит нормально
     - name: "Kubernetes: -- Install cni plugin --"
       kubernetes.core.k8s:
         src: "{{ item.path }}"

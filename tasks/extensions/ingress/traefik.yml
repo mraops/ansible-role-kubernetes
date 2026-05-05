@@ -1,0 +1,57 @@
+- name: "Kubernetes: -- Get administrative master node --"
+  ansible.builtin.import_tasks:
+    file: enviroment/get-master.yml
+
+- name: "Kubernetes: -- Install ingress controller traefik --"
+  become: true
+  run_once: true
+  delegate_to: "{{ administrative_master_node }}"
+  block:
+    - name: "Kubernetes: -- Create temp traefik directory --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/traefik"
+        state: directory
+        mode: "0755"
+
+    - name: "Kubernetes: -- Copy traefik CRDs --"
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ kubernetes_tmp_configs_dir }}/traefik/{{ item.path | basename | regex_replace('\\.j2$', '') }}"
+        mode: "0644"
+      with_filetree: "{{ role_path }}/templates/manifests/ingress/traefik/{{ kubernetes_extensions_traefik_chart_version }}/crds/"
+      when: item.state == 'file'
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Kubernetes: -- Copy traefik manifests --"
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ kubernetes_tmp_configs_dir }}/traefik/{{ item.path | basename | regex_replace('\\.j2$', '') }}"
+        mode: "0644"
+      with_filetree: "{{ role_path }}/templates/manifests/ingress/traefik/{{ kubernetes_extensions_traefik_chart_version }}/manifests/"
+      when: item.state == 'file'
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Kubernetes: -- Find traefik manifest files --"
+      ansible.builtin.find:
+        paths: "{{ kubernetes_tmp_configs_dir }}/traefik"
+        patterns: ["*.yaml", "*.yml"]
+      register: traefik_manifest_files
+
+    - name: "Kubernetes: -- Install ingress controller --"
+      kubernetes.core.k8s:
+        src: "{{ item.path }}"
+        state: present
+      register: result
+      until: result is succeeded
+      retries: 5
+      delay: 20
+      loop: "{{ traefik_manifest_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Kubernetes: -- Remove traefik temp directory --"
+      ansible.builtin.file:
+        path: "{{ kubernetes_tmp_configs_dir }}/traefik"
+        state: absent

@@ -1,0 +1,30 @@
+deployment:
+  kind: Deployment
+
+service:
+  type: NodePort
+  externalTrafficPolicy: Local
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    nodePort: 30080
+    expose:
+      default: true
+  websecure:
+    port: 8443
+    exposedPort: 443
+    nodePort: 30443
+    expose:
+      default: true
+    tls:
+      enabled: true
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+metrics:
+  prometheus:
+    enabled: false

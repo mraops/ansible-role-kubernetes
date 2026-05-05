@@ -11,7 +11,7 @@ kubernetes_crictl_url: "" # https://github.com/kubernetes-sigs/cri-tools/release
 kubernetes_haproxy_packages:
   - haproxy
   - socat
-  # TODO: нужен там где есть selinux
+  # нужен там где есть selinux
   # - policycoreutils-python-utils
 kubernetes_haproxy_oom_score_adjust: -900
 kubernetes_haproxy_restart_sec: 5s
@@ -46,8 +46,7 @@ kubernetes_ca_certificate_validity_period: "87600h" # Default: 87600h #  365 day
 
 # Containerd settings
 kubernetes_containerd_cni_bin_dir: "/opt/cni/bin"
-# TODO: Сделать проверку версии
-kubernetes_containerd_sandbox_image: "{{ kubernetes_image_repository }}/pause:3.9"
+kubernetes_containerd_sandbox_image: "{{ kubernetes_image_repository }}/pause:3.10"
 kubernetes_containerd_package_version: "1.7.27-1"
 kubernetes_containerd_private_registries_config_dir: "/etc/containerd/registries.d"
 kubernetes_containerd_private_registries:
@@ -137,15 +136,15 @@ kubernetes_kubeproxy_metrics_bind_address: "0.0.0.0:10249"
 kubernetes_node_local_dns_ip: "169.254.64.10"
 kubernetes_node_local_dns_domain: "cluster.local"
 kubernetes_extensions_node_local_dns_image_repo: "registry.k8s.io/dns/k8s-dns-node-cache"
-kubernetes_extensions_node_local_dns_image_tag: "1.24.0"
+kubernetes_extensions_node_local_dns_image_tag: "1.26.8"
 
 # Kubernetes coredns setting
 kubernetes_coredns_node_labels: "master"
 
 # Kubernetes csr approving setting
-kubernetes_extensions_kubelet_csr_approver_enabled: false
+kubernetes_extensions_kubelet_csr_approver_enabled: true
 kubernetes_extensions_kubelet_csr_approver_image_repo: "postfinance/kubelet-csr-approver"
-kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.6"
+kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.14"
 kubernetes_extensions_kubelet_csr_approver_provider_regex: ^.*\.example\.com$
 kubernetes_extensions_kubelet_csr_approver_node_labels: "master"
 
@@ -174,12 +173,15 @@ kubernetes_loadbalancer_nginx_config_dir: "/etc/nginx"
 
 # Metrics-server
 kubernetes_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
-kubernetes_metrics_server_image_tag: "v0.7.2"
+kubernetes_metrics_server_image_tag: "v0.8.1"
 kubernetes_metrics_server_node_labels: "app"
 
-# extensions settings
-kubernetes_extensions_ingress_nginx_http_node_port: 30080
-kubernetes_extensions_ingress_nginx_https_node_port: 30443
+# Kubernetes traefik ingress setting
+# Helm chart version determines the manifest structure
+kubernetes_extensions_traefik_chart_version: "v34.2.0"
+kubernetes_extensions_traefik_image_repo: "docker.io"
+kubernetes_extensions_traefik_http_node_port: 30080
+kubernetes_extensions_traefik_https_node_port: 30443
 
 # Python packages
 kubernetes_python_package: "kubernetes==31.0.0"

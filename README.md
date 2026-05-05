@@ -133,14 +133,24 @@ templates/manifests/cni/calico/
 Для генерации манифестов новой версии и публикации образов в приватный registry:
 
 ```bash
-# Генерация манифестов из Helm chart
+# Генерация манифестов Calico из Helm chart
 ./tools/cni/build-calico.sh v3.32.0
 
-# Публикация образов в приватный registry
-./tools/cni/push-calico-images.sh v3.32.0 harbor.company.local/calico
+# Генерация манифестов Traefik из Helm chart
+./tools/ingress/build-traefik.sh v34.2.0
 
-# Предварительный просмотр (без push)
-./tools/cni/push-calico-images.sh v3.32.0 harbor.company.local/calico --dry-run
+# Публикация образов в приватный registry
+./tools/push-images.sh harbor.company.local --dry-run
+./tools/push-images.sh harbor.company.local all --k8s-version 1.33.3
+```
+
+### Traefik Ingress
+
+```yaml
+kubernetes_extensions_traefik_chart_version: "v34.2.0"
+kubernetes_extensions_traefik_image_repo: "docker.io"
+kubernetes_extensions_traefik_http_node_port: 30080
+kubernetes_extensions_traefik_https_node_port: 30443
 ```
 
 ### Metrics / DNS
@@ -169,7 +179,6 @@ kubernetes_packages:
   - kubeadm-0:1.33.3-150500.1.1.x86_64
   - kubelet-0:1.33.3-150500.1.1.x86_64
   - cri-tools-1.33.0-150500.1.1
-  - iproute-tc
   - containerd-1:1.7.1-2.x86_64
   - python3-kubernetes
   - python3-openshift
@@ -184,7 +193,8 @@ kubernetes_containerd_sandbox_image: "{{ kubernetes_image_repository }}/pause:3.
 
 kubernetes_calico_cni_image_repository: "{{ kubernetes_image_repository }}"
 
-kubernetes_extensions_kubelet_csr_approver_enabled: true
+kubernetes_extensions_traefik_image_repo: "{{ kubernetes_image_repository }}"
+
 kubernetes_extensions_kubelet_csr_approver_provider_regex: "^.*\\.example\\.com$"
 kubernetes_extensions_kubelet_csr_approver_image_repo: "repo.example.com/postfinance/kubelet-csr-approver"
 kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.6"
@@ -253,7 +263,7 @@ k8s_workers:
 - `kubernetes_install_node_local_dns`: установка NodeLocal DNS
 - `kubernetes_patch_coredns`: патч CoreDNS
 - `kubernetes_install_kubelet_csr_approver`: установка kubelet CSR approver
-- `kubernetes_install_ingress_nginx`: установка ingress-nginx
+- `kubernetes_install_ingress`: установка Traefik
 - `kubernetes_install_metrics_server`: установка metrics-server
 
 Примеры запуска:

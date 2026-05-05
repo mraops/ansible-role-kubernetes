@@ -4,9 +4,40 @@
 
 Формат ориентирован на Keep a Changelog.
 
+## [1.2.0] - 2026-05-05
+
+### Changed
+
+- **Ingress контроллер**: ingress-nginx заменён на Traefik (Helm chart v34.2.0, Traefik v3.3.2).
+  - Один образ вместо трёх (`docker.io/traefik:v3.3.2`).
+  - Манифесты хранятся в версионированных директориях (`templates/manifests/ingress/traefik/v34.2.0/`).
+  - CRD IngressRoute, Middleware, TLSOption доступны из коробки.
+- **Тег**: `kubernetes_install_ingress_nginx` → `kubernetes_install_ingress`.
+- **defaults/main.yml**: переменные `kubernetes_extensions_ingress_nginx_*` заменены на `kubernetes_extensions_traefik_*`.
+- **tools/push-images.sh**: ingress-компонент обновлён для Traefik (один образ).
+
+### Added
+
+- `tools/ingress/build-traefik.sh` — скрипт генерации манифестов Traefik из Helm chart с Jinja2 для registry и NodePort.
+- `templates/manifests/ingress/traefik/v34.2.0/` — версионированные манифесты Traefik (chart v34.2.0).
+- `tasks/extensions/ingress/traefik.yml` — задача установки Traefik с динамическим поиском манифестов.
+
+### Removed
+
+- `templates/manifests/ingress/ingress-nginx.yml.j2` — заменён версионированными манифестами Traefik.
+- `tasks/extensions/ingress/ingress-nginx.yml` — заменён `traefik.yml`.
+
 ## [1.1.0] - 2026-05-05
 
 ### Changed
+
+- Обновлены версии тегов образов:
+  - `pause: 3.9` → `3.10`
+  - `k8s-dns-node-cache: 1.24.0` → `1.26.8`
+  - `kubelet-csr-approver: v1.2.6` → `v1.2.14`
+  - `metrics-server: v0.7.2` → `v0.8.1`
+- `kubernetes_extensions_kubelet_csr_approver_enabled` включён по умолчанию (`true`).
+
 
 - **Calico CNI**: единый файл `install-calico-operator.yml.j2` заменён на версионированные директории по версии Helm chart'а Tigera operator (`templates/manifests/cni/calico/v3.32.0/`).
 - **Задача установки Calico** (`tasks/extensions/cni/calico.yml`): переписана на динамический поиск манифестов через `with_filetree` и `ansible.builtin.find` вместо фиксированного списка файлов.
