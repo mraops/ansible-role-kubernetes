@@ -135,7 +135,7 @@ kubernetes_kubeproxy_metrics_bind_address: "0.0.0.0:10249"
 # Kubernetes node local dns setting
 kubernetes_node_local_dns_ip: "169.254.64.10"
 kubernetes_node_local_dns_domain: "cluster.local"
-kubernetes_extensions_node_local_dns_image_repo: "registry.k8s.io/dns/k8s-dns-node-cache"
+kubernetes_extensions_node_local_dns_image_repo: "{{ kubernetes_image_repository }}/dns/k8s-dns-node-cache"
 kubernetes_extensions_node_local_dns_image_tag: "1.26.8"
 
 # Kubernetes coredns setting
@@ -143,7 +143,7 @@ kubernetes_coredns_node_labels: "master"
 
 # Kubernetes csr approving setting
 kubernetes_extensions_kubelet_csr_approver_enabled: true
-kubernetes_extensions_kubelet_csr_approver_image_repo: "postfinance/kubelet-csr-approver"
+kubernetes_extensions_kubelet_csr_approver_image_repo: "docker.io/postfinance/kubelet-csr-approver"
 kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.14"
 kubernetes_extensions_kubelet_csr_approver_provider_regex: ^.*\.example\.com$
 kubernetes_extensions_kubelet_csr_approver_node_labels: "master"
@@ -172,7 +172,7 @@ kubernetes_loadbalancer_nginx_image_tag: ""
 kubernetes_loadbalancer_nginx_config_dir: "/etc/nginx"
 
 # Metrics-server
-kubernetes_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
+kubernetes_metrics_server_image_repo: "{{ kubernetes_image_repository }}/metrics-server/metrics-server"
 kubernetes_metrics_server_image_tag: "v0.8.1"
 kubernetes_metrics_server_node_labels: "app"
 

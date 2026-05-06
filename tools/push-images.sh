@@ -101,10 +101,18 @@ add_calico_images() {
     done
 }
 
+# Resolve {{ kubernetes_image_repository }} in Jinja2 values
+resolve_image_repo() {
+    local value="$1"
+    local base
+    base=$(get_default kubernetes_image_repository)
+    echo "${value//\{\{ kubernetes_image_repository \}\}/${base}}"
+}
+
 # -- metrics-server
 add_metrics_images() {
     local repo tag
-    repo=$(get_default kubernetes_metrics_server_image_repo)
+    repo=$(resolve_image_repo "$(get_default kubernetes_metrics_server_image_repo)")
     tag=$(get_default kubernetes_metrics_server_image_tag)
     add_image "${repo}:${tag}"
 }
@@ -112,7 +120,7 @@ add_metrics_images() {
 # -- NodeLocal DNS
 add_dns_images() {
     local repo tag
-    repo=$(get_default kubernetes_extensions_node_local_dns_image_repo)
+    repo=$(resolve_image_repo "$(get_default kubernetes_extensions_node_local_dns_image_repo)")
     tag=$(get_default kubernetes_extensions_node_local_dns_image_tag)
     add_image "${repo}:${tag}"
 }
@@ -122,10 +130,10 @@ add_csr_images() {
     local repo tag
     repo=$(get_default kubernetes_extensions_kubelet_csr_approver_image_repo)
     tag=$(get_default kubernetes_extensions_kubelet_csr_approver_image_tag)
-    add_image "docker.io/${repo}:${tag}"
+    add_image "${repo}:${tag}"
 }
 
-# -- ingress: traefik (single image, tag from generated manifest)
+# -- ingress: traefik (source: docker.io, tag from generated manifest)
 add_ingress_images() {
     local traefik_ver
     traefik_ver=$(get_default kubernetes_extensions_traefik_chart_version)
@@ -137,10 +145,9 @@ add_ingress_images() {
         exit 1
     fi
 
-    local repo tag
-    repo=$(get_default kubernetes_extensions_traefik_image_repo)
+    local tag
     tag=$(sed -n 's|.*traefik:\(.*\)|\1|p' "${manifest}" | head -1)
-    add_image "${repo}/traefik:${tag}"
+    add_image "docker.io/traefik:${tag}"
 }
 
 # -- Parse arguments
