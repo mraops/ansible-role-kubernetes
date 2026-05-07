@@ -22,40 +22,39 @@
   run_once: true
   delegate_to: "{{ administrative_master_node }}"
 
-- name: "Kubernetes: -- Join master node --"
-  block:
-    - name: "Kubernetes: -- Check if master node is already joined --"
-      ansible.builtin.stat:
-        path: "/etc/kubernetes/kubelet.conf"
-      register: kubernetes_master_kubelet_conf_stat
+- name: "Kubernetes: -- Check if master node is already joined --"
+  ansible.builtin.stat:
+    path: "/etc/kubernetes/kubelet.conf"
+  register: kubernetes_master_kubelet_conf_stat
+  become: true
 
+- name: "Kubernetes: -- Join master node --"
+  become: true
+  when:
+    - inventory_hostname != administrative_master_node
+    - inventory_hostname in groups[kubernetes_master_group_name]
+    - not (kubernetes_master_kubelet_conf_stat.stat.exists | default(false))
+  block:
     - name: "Kubernetes: -- Prepare OS  --"
-      ansible.builtin.import_tasks: "prepare/main.yml"
-      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+      ansible.builtin.include_tasks: "prepare/main.yml"
 
     - name: "Kubernetes: -- Install components --"
-      ansible.builtin.import_tasks: "components/main.yml"
-      when: not kubernetes_master_kubelet_conf_stat.stat.exists
+      ansible.builtin.include_tasks: "components/main.yml"
 
     - name: "Kubernetes: -- Wait for local kubernetes API endpoint --"
       ansible.builtin.wait_for:
         host: "{{ kubernetes_loadbalancer_apiserver_ip }}"
         port: "{{ kubernetes_loadbalancer_apiserver_port }}"
         timeout: 30
-      when: not kubernetes_master_kubelet_conf_stat.stat.exists
 
     - name: "Kubernetes: -- Join master node {{ inventory_hostname }} --"
       ansible.builtin.command:
         cmd: "{{ k8s_join_command.stdout }} --control-plane --certificate-key {{ k8s_certificate_key }}"
       register: k8s_join_master_result
-      when: not kubernetes_master_kubelet_conf_stat.stat.exists
 
     - name: "Kubernetes: -- Show join master result {{ inventory_hostname }}  --"
       ansible.builtin.debug:
         var: k8s_join_master_result
-      when:
-        - k8s_join_master_result is defined
-        - not kubernetes_master_kubelet_conf_stat.stat.exists
 
     - name: "Kubernetes: -- Create {{ kubernetes_kubectl_user_home }}/.kube folder --"
       ansible.builtin.file:
@@ -73,8 +72,6 @@
         group: "{{ ansible_user_id }}"
         mode: "0600"
         remote_src: true
-  become: true
-  when: inventory_hostname != administrative_master_node and inventory_hostname in groups[kubernetes_master_group_name]
   # rescue:
   #   - name: "Kubernetes: -- Reset node {{ inventory_hostname }} --"
   #     ansible.builtin.command: kubeadm reset --force
