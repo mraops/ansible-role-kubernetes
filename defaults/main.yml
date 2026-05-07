@@ -40,6 +40,7 @@ kubernetes_loadbalancer_apiserver_ip: "127.0.0.1"
 kubernetes_loadbalancer_apiserver_port: 8443
 kubernetes_apiserver_port: "6443"
 kubernetes_apiserver_external_ip: ""
+kubernetes_apiserver_external_ip_port: "6443"
 kubernetes_apiserver_extra_sans: "{{ groups[kubernetes_master_group_name] }}"
 kubernetes_client_certificate_validity_period: "8760h" # Default: 8760h  # 365 days × 24 hours = 1 year
 kubernetes_ca_certificate_validity_period: "87600h" # Default: 87600h #  365 days × 24 hours * 10 = 10 years

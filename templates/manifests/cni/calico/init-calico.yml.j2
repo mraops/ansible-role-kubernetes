@@ -65,8 +65,8 @@ metadata:
   name: kubernetes-services-endpoint
   namespace: tigera-operator
 data:
-  KUBERNETES_SERVICE_HOST: "{{ kubernetes_apiserver_ip }}"
-  KUBERNETES_SERVICE_PORT: "{{ kubernetes_apiserver_port | default ("6443")}}"
+  KUBERNETES_SERVICE_HOST: "{{ kubernetes_apiserver_external_ip }}"
+  KUBERNETES_SERVICE_PORT: "{{ kubernetes_apiserver_external_ip_port }}"
 {% endif %}
 
 
