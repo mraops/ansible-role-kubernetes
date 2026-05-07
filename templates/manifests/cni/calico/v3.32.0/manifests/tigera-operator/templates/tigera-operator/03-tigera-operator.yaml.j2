@@ -20,6 +20,19 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: linux
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/{{ kubernetes_calico_controlplane_nodeselector }}
+                operator: Exists
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                k8s-app: tigera-operator
+            topologyKey: kubernetes.io/hostname
       tolerations:
         - effect: NoExecute
           operator: Exists
@@ -34,7 +47,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tigera-operator
-          image: {{ kubernetes_calico_cni_image_repository }}/tigera/operator:v1.40.8
+          image: {{ kubernetes_calico_cni_image_repository }}/tigera/operator:v1.42.0
           imagePullPolicy: IfNotPresent
           command:
             - operator
@@ -55,7 +68,7 @@ spec:
             - name: OPERATOR_NAME
               value: "tigera-operator"
             - name: TIGERA_OPERATOR_INIT_IMAGE_VERSION
-              value: v1.40.8
+              value: v1.42.0
           envFrom:
             - configMapRef:
                 name: kubernetes-services-endpoint

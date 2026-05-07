@@ -25,30 +25,54 @@
       loop_control:
         label: "{{ item.path | basename }}"
 
+    - name: "Kubernetes: -- Find operator manifest files --"
+      ansible.builtin.find:
+        paths: "{{ kubernetes_tmp_configs_dir }}/calico"
+        patterns: [ "*.yaml", "*.yml" ]
+        excludes: [ "init-calico.yml" ]
+      register: calico_operator_files
+
+    - name: "Kubernetes: -- Install calico operator --"
+      kubernetes.core.k8s:
+        src: "{{ item.path }}"
+        state: present
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+      register: result
+      until: result is succeeded
+      retries: 5
+      delay: 20
+      loop: "{{ calico_operator_files.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Kubernetes: -- Wait for Installation CRD --"
+      kubernetes.core.k8s_info:
+        api_version: apiextensions.k8s.io/v1
+        kind: CustomResourceDefinition
+        name: installations.operator.tigera.io
+      register: crd_result
+      until: crd_result.resources | length > 0
+      retries: 30
+      delay: 10
+
     - name: "Kubernetes: -- Copy init-calico manifest --"
       ansible.builtin.template:
         src: "manifests/cni/calico/init-calico.yml.j2"
         dest: "{{ kubernetes_tmp_configs_dir }}/calico/init-calico.yml"
         mode: "0644"
 
-    - name: "Kubernetes: -- Find calico manifest files --"
-      ansible.builtin.find:
-        paths: "{{ kubernetes_tmp_configs_dir }}/calico"
-        patterns: [ "*.yaml", "*.yml" ]
-      register: calico_manifest_files
-
-    # BUG: calico-typha/calico-apiserver не устанавливаются под и нод аффинити
-    - name: "Kubernetes: -- Install cni plugin --"
+    - name: "Kubernetes: -- Apply init-calico --"
       kubernetes.core.k8s:
-        src: "{{ item.path }}"
+        src: "{{ kubernetes_tmp_configs_dir }}/calico/init-calico.yml"
         state: present
-      register: result
-      until: result is succeeded
-      retries: 5
-      delay: 20
-      loop: "{{ calico_manifest_files.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+
     - name: "Kubernetes: -- Remove calico temp directory --"
       ansible.builtin.file:
         path: "{{ kubernetes_tmp_configs_dir }}/calico"

@@ -4,6 +4,27 @@
 
 Формат ориентирован на Keep a Changelog.
 
+## [1.3.0] - 2026-05-07
+
+### Changed
+
+- **Calico CNI**: обновлён Tigera operator (chart v3.32.0, operator v1.42.0).
+  - Добавлен `controlPlaneTolerations` с `operator: Exists` — все control plane компоненты Calico могут запускаться на любых нодах.
+  - Добавлен `nodeAffinity` (required) на `control-plane` ноды для typha, kube-controllers, apiserver и tigera-operator.
+  - Добавлен `podAntiAffinity` (required) для typha, kube-controllers и apiserver — запрещено размещение двух подов одного компонента на одной ноде.
+  - Конфигурация `apiserverDeployment` перенесена из ресурса `Installation` в ресурс `APIServer` (согласно API `operator.tigera.io/v1`).
+  - Исправлена вложенность `typhaDeployment` и `calicoKubeControllersDeployment`: путь `spec.template.spec.affinity` вместо `spec.affinity`.
+  - Оператор tigera-operator теперь получает affinity через Helm values и build-скрипт (`tools/cni/build-calico.sh`), а не прямым редактированием шаблона.
+- **Server-Side Apply**: исправлен синтаксис `kubernetes.core.k8s` во всех extension-тасках:
+  - `field_manager` перемещён внутрь `server_side_apply`.
+  - `force` переименован в `force_conflicts`.
+  - Добавлен `apply: yes` — без него `server_side_apply` игнорировался.
+- **defaults/main.yml**: переменная `kubernetes_calico_chart_version` обновлена на `v3.32.0`.
+
+### Added
+
+- `templates/manifests/cni/calico/v3.31.5/` — версионированные манифесты Tigera operator (chart v3.31.5).
+
 ## [1.2.0] - 2026-05-05
 
 ### Changed

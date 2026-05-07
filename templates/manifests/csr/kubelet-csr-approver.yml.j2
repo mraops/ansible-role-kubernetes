@@ -96,7 +96,7 @@ spec:
             - weight: 100
               preference:
                 matchExpressions:
-                  - key: "node-role.kubernetes.io/control-plane"
+                  - key: "node-role.kubernetes.io/{{ kubernetes_extensions_kubelet_csr_approver_node_labels }}"
                     operator: Exists
       containers:
         - name: kubelet-csr-approver

@@ -8,8 +8,11 @@ CALICO_DIR="${ROLE_DIR}/templates/manifests/cni/calico"
 TRAEFIK_DIR="${ROLE_DIR}/templates/manifests/ingress/traefik"
 
 CALICO_LINUX_IMAGES=(
+    "calico/typha"
     "calico/node"
     "calico/cni"
+    "calico/csi"
+    "calico/node-driver-registrar"
     "calico/apiserver"
     "calico/kube-controllers"
     "calico/envoy-gateway"
@@ -85,7 +88,7 @@ add_k8s_images() {
 add_calico_images() {
     local calico_ver="$1"
 
-    local manifest="${CALICO_DIR}/${calico_ver}/manifests/tigera-operator/templates/tigera-operator/02-tigera-operator.yaml.j2"
+    local manifest="${CALICO_DIR}/${calico_ver}/manifests/tigera-operator/templates/tigera-operator/03-tigera-operator.yaml.j2"
     if [[ ! -f "${manifest}" ]]; then
         echo "ERROR: ${manifest} not found."
         echo "Run tools/cni/build-calico.sh ${calico_ver} first."
@@ -138,7 +141,7 @@ add_ingress_images() {
     local traefik_ver
     traefik_ver=$(get_default kubernetes_extensions_traefik_chart_version)
 
-    local manifest="${TRAEFIK_DIR}/${traefik_ver}/manifests/traefik/templates/deployment.yaml.j2"
+    local manifest="${TRAEFIK_DIR}/${traefik_ver}/manifests/traefik/templates/03-deployment.yaml.j2"
     if [[ ! -f "${manifest}" ]]; then
         echo "ERROR: ${manifest} not found."
         echo "Run tools/ingress/build-traefik.sh ${traefik_ver} first."

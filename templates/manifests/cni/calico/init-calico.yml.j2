@@ -5,7 +5,46 @@ metadata:
   name: default
 spec:
   registry: "{{ kubernetes_calico_cni_image_repository }}"
-  controlPlaneReplicas: {{ kubernetes_calico_typha_replicas | default(1) }}
+  controlPlaneReplicas: {{ kubernetes_calico_controlplane_replicas }}
+  controlPlaneTolerations:
+    - operator: Exists
+
+  typhaDeployment:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: node-role.kubernetes.io/{{ kubernetes_calico_controlplane_nodeselector }}
+                    operator: Exists
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    k8s-app: calico-typha
+                topologyKey: kubernetes.io/hostname
+
+  calicoKubeControllersDeployment:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: node-role.kubernetes.io/{{ kubernetes_calico_controlplane_nodeselector }}
+                    operator: Exists
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    k8s-app: calico-kube-controllers
+                topologyKey: kubernetes.io/hostname
+
   # Configures Calico networking.
   calicoNetwork:
     linuxDataplane: "{{ kubernetes_calico_dataplane_type }}"
@@ -39,7 +78,24 @@ apiVersion: operator.tigera.io/v1
 kind: APIServer
 metadata:
   name: default
-spec: {}
+spec:
+  apiServerDeployment:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: node-role.kubernetes.io/{{ kubernetes_calico_controlplane_nodeselector }}
+                    operator: Exists
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    k8s-app: calico-apiserver
+                topologyKey: kubernetes.io/hostname
 {% endif %}
 
 {% if kubernetes_calico_observability_enabled | default(false) | bool %}

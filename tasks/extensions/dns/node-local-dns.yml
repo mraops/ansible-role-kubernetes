@@ -27,6 +27,10 @@
       kubernetes.core.k8s:
         src: "{{ kubernetes_tmp_configs_dir }}/nodelocaldns.yml"
         state: present
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
     - name: "Kubernetes: -- Remove node local dns manifest --"
       ansible.builtin.file:
         path: "{{ kubernetes_tmp_configs_dir }}/nodelocaldns.yml"

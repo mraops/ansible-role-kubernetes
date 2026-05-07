@@ -4,7 +4,7 @@ set -euo pipefail
 CALICO_DIR="templates/manifests/cni/calico"
 HELM_REPO="https://docs.tigera.io/calico/charts"
 NAMESPACE="tigera-operator"
-DEPLOYMENT_FILE="02-tigera-operator.yaml"
+DEPLOYMENT_FILE="03-tigera-operator.yaml"
 
 VALUES_DEFAULT=$(cat <<'EOF'
 installation:
@@ -22,6 +22,21 @@ goldmane:
 # whisker configures the Calico Whisker observability UI.
 whisker:
   enabled: false
+
+# Affinity for the tigera-operator pod.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/CONTROLPLANE_NODESELECTOR
+          operator: Exists
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          k8s-app: tigera-operator
+      topologyKey: kubernetes.io/hostname
 EOF
 )
 
@@ -106,14 +121,15 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
 EOF
 
-# Replace image with Jinja2 and add .j2 extension
-DEPLOYMENT_SRC="${MANIFESTS_DIR}/${DEPLOYMENT_FILE}"
+# Replace image with Jinja2, rename to 03- prefix and add .j2 extension
+DEPLOYMENT_SRC="${MANIFESTS_DIR}/02-tigera-operator.yaml"
 DEPLOYMENT_DST="${MANIFESTS_DIR}/${DEPLOYMENT_FILE}.j2"
 
 if [[ -f "${DEPLOYMENT_SRC}" ]]; then
     echo "==> Injecting Jinja2 image variables..."
     IMAGE_TAG=$(sed -n 's|.*image: quay.io/tigera/operator:\(.*\)|\1|p' "${DEPLOYMENT_SRC}")
     sed -i '' 's|image: quay.io|image: {{ kubernetes_calico_cni_image_repository }}|' "${DEPLOYMENT_SRC}"
+    sed -i '' 's|node-role.kubernetes.io/CONTROLPLANE_NODESELECTOR|node-role.kubernetes.io/{{ kubernetes_calico_controlplane_nodeselector }}|' "${DEPLOYMENT_SRC}"
     mv "${DEPLOYMENT_SRC}" "${DEPLOYMENT_DST}"
     echo ""
     echo "==> Image tag for this chart: ${IMAGE_TAG}"

@@ -43,11 +43,15 @@
       kubernetes.core.k8s:
         src: "{{ item.path }}"
         state: present
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
       register: result
       until: result is succeeded
       retries: 5
       delay: 20
-      loop: "{{ traefik_manifest_files.files }}"
+      loop: "{{ traefik_manifest_files.files | sort(attribute='path') }}"
       loop_control:
         label: "{{ item.path | basename }}"
 

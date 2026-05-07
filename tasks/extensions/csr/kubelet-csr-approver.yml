@@ -12,11 +12,14 @@
         src: "manifests/csr/kubelet-csr-approver.yml.j2"
         dest: "{{ kubernetes_tmp_configs_dir }}/kubelet-csr-approver.yml"
         mode: "0644"
-#TODO: при применении делоймент не пеустанавливаетя а патчится, старые некорректные параметры не удаляются
     - name: "Kubernetes: -- Install kubelet csr approver --"
-      ansible.builtin.k8s:
+      kubernetes.core.k8s:
         src: "{{ kubernetes_tmp_configs_dir }}/kubelet-csr-approver.yml"
         state: present
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
 
     - name: "Kubernetes: -- Remove kubelet csr approver manifests --"
       ansible.builtin.file:

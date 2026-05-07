@@ -13,3 +13,18 @@ goldmane:
 # whisker configures the Calico Whisker observability UI.
 whisker:
   enabled: false
+
+# Affinity for the tigera-operator pod.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/CONTROLPLANE_NODESELECTOR
+          operator: Exists
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          k8s-app: tigera-operator
+      topologyKey: kubernetes.io/hostname

@@ -139,21 +139,22 @@ kubernetes_extensions_node_local_dns_image_repo: "{{ kubernetes_image_repository
 kubernetes_extensions_node_local_dns_image_tag: "1.26.8"
 
 # Kubernetes coredns setting
-kubernetes_coredns_node_labels: "master"
+kubernetes_coredns_node_labels: "control-plane"
 
 # Kubernetes csr approving setting
 kubernetes_extensions_kubelet_csr_approver_enabled: true
 kubernetes_extensions_kubelet_csr_approver_image_repo: "docker.io/postfinance/kubelet-csr-approver"
 kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.14"
 kubernetes_extensions_kubelet_csr_approver_provider_regex: ^.*\.example\.com$
-kubernetes_extensions_kubelet_csr_approver_node_labels: "master"
+kubernetes_extensions_kubelet_csr_approver_node_labels: "control-plane"
 
 # Kubernetes calico setting
 # Helm chart version determines the operator manifest structure
 kubernetes_calico_chart_version: "v3.32.0"
 kubernetes_calico_cni_image_repository: "quay.io"
-kubernetes_calico_typha_replicas: 1
-kubernetes_calico_apiserver_enabled: false
+kubernetes_calico_controlplane_replicas: "2"
+kubernetes_calico_controlplane_nodeselector: "control-plane"
+kubernetes_calico_apiserver_enabled: true
 kubernetes_calico_observability_enabled: false
 # One of: Iptables, BPF, VPP, Nftables https://docs.tigera.io/calico/latest/reference/installation/api#linuxdataplaneoption
 kubernetes_calico_dataplane_type: "Iptables"

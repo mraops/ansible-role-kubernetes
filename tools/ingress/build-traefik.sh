@@ -115,15 +115,16 @@ metadata:
     app.kubernetes.io/name: traefik
 EOF
 
-# Jinja2 replacements
+# Jinja2 replacements: helm generates deployment.yaml → rename to 03-deployment.yaml.j2
 DEPLOYMENT_SRC="${MANIFESTS_DIR}/deployment.yaml"
+DEPLOYMENT_DST="${MANIFESTS_DIR}/03-deployment.yaml.j2"
 SERVICE_SRC="${MANIFESTS_DIR}/service.yaml"
 
 if [[ -f "${DEPLOYMENT_SRC}" ]]; then
     echo "==> Injecting Jinja2 into deployment..."
     IMAGE_TAG=$(sed -n 's|.*image: docker.io/traefik:\(.*\)|\1|p' "${DEPLOYMENT_SRC}" | head -1)
     sed -i '' 's|image: docker.io|image: {{ kubernetes_extensions_traefik_image_repo }}|' "${DEPLOYMENT_SRC}"
-    mv "${DEPLOYMENT_SRC}" "${DEPLOYMENT_SRC}.j2"
+    mv "${DEPLOYMENT_SRC}" "${DEPLOYMENT_DST}"
     echo "    Image tag: ${IMAGE_TAG}"
 else
     echo "WARNING: deployment.yaml not found at ${DEPLOYMENT_SRC}"
