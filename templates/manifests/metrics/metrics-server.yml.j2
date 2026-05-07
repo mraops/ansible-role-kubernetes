@@ -137,7 +137,7 @@ spec:
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
         - --kubelet-use-node-status-port
         - --metric-resolution=15s
-        image: "{{ kubernetes_metrics_server_image_repo }}:{{ kubernetes_metrics_server_image_tag }}"
+        image: "{{ kubernetes_extensions_metrics_server_image_repo }}:{{ kubernetes_extensions_metrics_server_image_tag }}"
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -177,7 +177,7 @@ spec:
         - mountPath: /tmp
           name: tmp-dir
       nodeSelector:
-        node-role.kubernetes.io/{{ kubernetes_metrics_server_node_labels }}: "true"
+        node-role.kubernetes.io/{{ kubernetes_extensions_metrics_server_node_labels }}: "true"
       priorityClassName: system-cluster-critical
       serviceAccountName: metrics-server
       volumes:

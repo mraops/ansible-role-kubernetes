@@ -173,9 +173,9 @@ kubernetes_loadbalancer_nginx_image_tag: ""
 kubernetes_loadbalancer_nginx_config_dir: "/etc/nginx"
 
 # Metrics-server
-kubernetes_metrics_server_image_repo: "{{ kubernetes_image_repository }}/metrics-server/metrics-server"
-kubernetes_metrics_server_image_tag: "v0.8.1"
-kubernetes_metrics_server_node_labels: "app"
+kubernetes_extensions_metrics_server_image_repo: "{{ kubernetes_image_repository }}/metrics-server/metrics-server"
+kubernetes_extensions_metrics_server_image_tag: "v0.8.1"
+kubernetes_extensions_metrics_server_node_labels: "app"
 
 # Kubernetes traefik ingress setting
 # Helm chart version determines the manifest structure

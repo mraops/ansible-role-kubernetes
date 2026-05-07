@@ -115,8 +115,8 @@ resolve_image_repo() {
 # -- metrics-server
 add_metrics_images() {
     local repo tag
-    repo=$(resolve_image_repo "$(get_default kubernetes_metrics_server_image_repo)")
-    tag=$(get_default kubernetes_metrics_server_image_tag)
+    repo=$(resolve_image_repo "$(get_default kubernetes_extensions_metrics_server_image_repo)")
+    tag=$(get_default kubernetes_extensions_metrics_server_image_tag)
     add_image "${repo}:${tag}"
 }
 

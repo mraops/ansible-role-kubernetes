@@ -156,7 +156,7 @@ kubernetes_extensions_traefik_https_node_port: 30443
 ### Metrics / DNS
 
 ```yaml
-kubernetes_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
+kubernetes_extensions_metrics_server_image_repo: "registry.k8s.io/metrics-server/metrics-server"
 kubernetes_extensions_node_local_dns_image_repo: "registry.k8s.io/dns/k8s-dns-node-cache"
 ```
 
@@ -201,8 +201,8 @@ kubernetes_extensions_kubelet_csr_approver_image_tag: "v1.2.6"
 
 kubernetes_extensions_node_local_dns_image_repo: "repo.example.com/dns/k8s-dns-node-cache"
 kubernetes_extensions_node_local_dns_image_tag: "1.24.0"
-kubernetes_metrics_server_image_repo: "repo.example.com/metrics-server/metrics-server"
-kubernetes_metrics_server_image_tag: "v0.7.2"
+kubernetes_extensions_metrics_server_image_repo: "repo.example.com/metrics-server/metrics-server"
+kubernetes_extensions_metrics_server_image_tag: "v0.7.2"
 ```
 
 ## Пример inventory
